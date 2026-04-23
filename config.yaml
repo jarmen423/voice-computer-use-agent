@@ -1,0 +1,60 @@
+audio:
+  sample_rate: 16000
+  chunk_duration_ms: 30
+  frame_duration_ms: 30
+  silence_timeout_ms: 1500
+  vad_aggressiveness: 2
+  hotkey: "right ctrl"
+  wake_word: "hey computer"
+  wake_word_model_path: null
+
+stt:
+  provider: groq
+  model: whisper-large-v3
+  api_key: null
+  language: en
+
+llm:
+  provider: groq
+  model: llama-3.3-70b-versatile
+  api_key: null
+  fallback_provider: openai
+  fallback_model: gpt-4o-mini
+  fallback_api_key: null
+  temperature: 0.1
+  max_tokens: 1024
+
+tts:
+  provider: edge
+  voice: en-US-AriaNeural
+  enabled: true
+  speed: "+0%"
+
+computer_use:
+  provider: codex
+  api_key: null
+  model: claude-3-5-sonnet-20241022
+  confidence_threshold: 0.8
+
+safety:
+  confirm_destructive: true
+  destructive_keywords:
+    - close
+    - quit
+    - delete
+    - remove
+    - kill
+    - terminate
+    - shutdown
+    - reboot
+    - format
+    - rm -rf
+    - type password
+    - enter password
+    - input password
+  confirmation_timeout_seconds: 10
+
+app:
+  preferred_browser: chrome
+  preferred_terminal: cmd
+  codex_app_name: Codex

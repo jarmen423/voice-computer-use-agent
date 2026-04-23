@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "voiceuse"
+version = "0.1.0"
+description = "Local desktop voice agent that controls your OS hands-free"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "groq>=0.9.0",
+    "openai>=1.30.0",
+    "anthropic>=0.28.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0.1",
+    "pyaudio>=0.2.14",
+    "pynput>=1.7.6",
+    "pvporcupine>=1.9.0",
+    "webrtcvad>=2.0.10",
+    "edge-tts>=6.1.0",
+    "pyttsx3>=2.90",
+    "pygame>=2.5.0",
+    "pydub>=0.25.1",
+    "simpleaudio>=1.0.4",
+    "pyautogui>=0.9.54",
+    "mss>=9.0.1",
+    "pygetwindow>=0.0.9",
+    "pywin32>=306; sys_platform == 'win32'",
+]
+
+[project.scripts]
+voiceuse = "voiceuse.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["voiceuse"]
