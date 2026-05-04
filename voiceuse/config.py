@@ -75,10 +75,42 @@ class SafetyConfig(BaseModel):
     confirmation_timeout_seconds: int = 10
 
 
+class GrokVoiceConfig(BaseModel):
+    enabled: bool = False
+    api_key: Optional[str] = None
+    model: str = "grok-voice-think-fast-1.0"
+    voice: str = "Eve"
+    instructions: str = (
+        "You are a desktop voice assistant. You can open apps, focus windows, "
+        "click elements using computer vision, type text, search the browser, "
+        "and execute safe system commands."
+    )
+    sample_rate: int = 24000
+    turn_detection_type: str = "server_vad"
+    input_audio_transcription_model: str = "grok-2-audio"
+    tools: list[str] = Field(default_factory=lambda: [
+        "open_app",
+        "focus_window",
+        "click_element",
+        "type_text",
+        "browser_search",
+        "execute_system",
+    ])
+
+    @field_validator("api_key", mode="before")
+    def resolve_api_key(cls, v):
+        return v or os.environ.get("XAI_API_KEY")
+
+
+class PluginsConfig(BaseModel):
+    grok_voice: GrokVoiceConfig = Field(default_factory=GrokVoiceConfig)
+
+
 class AppConfig(BaseModel):
     preferred_browser: str = "chrome"
     preferred_terminal: str = "cmd" if os.name == "nt" else "gnome-terminal"
     codex_app_name: str = "Codex"  # Window title substring for Codex app
+    dry_run: bool = False  # If True, use mock LLM/STT responses (no API calls)
 
 
 class Config(BaseModel):
@@ -89,6 +121,7 @@ class Config(BaseModel):
     computer_use: ComputerUseConfig = Field(default_factory=ComputerUseConfig)
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
     app: AppConfig = Field(default_factory=AppConfig)
+    plugins: PluginsConfig = Field(default_factory=PluginsConfig)
 
     @classmethod
     def from_yaml(cls, path: str = "config.yaml") -> "Config":

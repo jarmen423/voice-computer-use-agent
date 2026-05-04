@@ -28,10 +28,23 @@ dependencies = [
     "mss>=9.0.1",
     "pygetwindow>=0.0.9",
     "pywin32>=306; sys_platform == 'win32'",
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
 ]
 
 [project.scripts]
-voiceuse = "voiceuse.main:main"
+voiceuse = "voiceuse.main:_entry"
 
 [tool.hatch.build.targets.wheel]
 packages = ["voiceuse"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

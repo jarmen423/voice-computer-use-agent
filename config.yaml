@@ -58,3 +58,25 @@ app:
   preferred_browser: chrome
   preferred_terminal: cmd
   codex_app_name: Codex
+  dry_run: false
+
+plugins:
+  grok_voice:
+    enabled: false
+    api_key: null
+    model: grok-voice-think-fast-1.0
+    voice: Eve
+    instructions: >-
+      You are a desktop voice assistant. You can open apps, focus windows,
+      click elements using computer vision, type text, search the browser,
+      and execute safe system commands.
+    sample_rate: 24000
+    turn_detection_type: server_vad
+    input_audio_transcription_model: grok-2-audio
+    tools:
+      - open_app
+      - focus_window
+      - click_element
+      - type_text
+      - browser_search
+      - execute_system

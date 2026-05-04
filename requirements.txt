@@ -23,6 +23,9 @@ mss>=9.0.1
 pygetwindow>=0.0.9
 pywin32>=306; sys_platform == "win32"
 
+# Grok Voice plugin (xAI Realtime API)
+websockets>=12.0
+
 # Linux-specific (must be installed via system package manager usually)
 # python3-xlib
 # xdotool
