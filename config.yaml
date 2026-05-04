@@ -15,8 +15,8 @@ stt:
   language: en
 
 llm:
-  provider: groq          # or "cerebras" or "openai"
-  model: llama-3.3-70b-versatile
+  provider: cerebras          # or "cerebras" or "openai"
+  model: gpt-oss-120b
   api_key: null           # uses GROQ_API_KEY env var if null
   fallback_provider: openai
   fallback_model: gpt-4o-mini
@@ -32,9 +32,9 @@ tts:
   speed: "+0%"
 
 computer_use:
-  provider: codex
-  api_key: null
-  model: claude-3-5-sonnet-20241022
+  provider: codex          # "codex" uses the local Codex CLI (OAuth via ChatGPT subscription)
+  api_key: null            # not used for codex — Codex CLI authenticates via `codex login`
+  model: claude-sonnet     # only used when provider is "anthropic"; ignored for codex
   confidence_threshold: 0.8
 
 safety:

@@ -122,8 +122,8 @@ tts:
   enabled: true
 
 computer_use:
-  provider: codex          # or "anthropic"
-  api_key: null            # falls back to ANTHROPIC_API_KEY env var
+  provider: codex          # "codex" (Codex CLI, OAuth) or "anthropic" (API key)
+  api_key: null            # only needed for anthropic; codex uses `codex login`
 
 safety:
   confirm_destructive: true
@@ -231,6 +231,8 @@ brew install openai/codex/codex
 # or
 npm install -g @openai/codex
 ```
+- Authenticate with `codex login` (uses your ChatGPT Plus/Pro subscription via OAuth).
+- **No API key needed** — `computer_use.api_key` should stay `null`.
 
 **Anthropic** (alternative provider):
 - Set `ANTHROPIC_API_KEY`.
