@@ -15,12 +15,13 @@ stt:
   language: en
 
 llm:
-  provider: groq
+  provider: groq          # or "cerebras" or "openai"
   model: llama-3.3-70b-versatile
-  api_key: null
+  api_key: null           # uses GROQ_API_KEY env var if null
   fallback_provider: openai
   fallback_model: gpt-4o-mini
-  fallback_api_key: null
+  fallback_api_key: null  # uses OPENAI_API_KEY env var if null
+  cerebras_api_key: null  # uses CEREBRAS_API_KEY env var if null
   temperature: 0.1
   max_tokens: 1024
 

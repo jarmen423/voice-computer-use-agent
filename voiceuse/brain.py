@@ -248,26 +248,35 @@ class LLMResponse:
 
 
 class _LLMClient:
-    """Thin async wrapper around Groq / OpenAI SDKs with identical call semantics."""
+    """Thin async wrapper around Groq / Cerebras / OpenAI SDKs with identical call semantics."""
 
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
         self._groq_client: Any = None
         self._openai_client: Any = None
+        self._cerebras_client: Any = None
         self._init_clients()
 
     def _init_clients(self) -> None:
-        # Primary: Groq
+        # Groq
         if groq is not None and self.config.api_key:
             self._groq_client = groq.AsyncGroq(api_key=self.config.api_key)
             logger.info("Groq async client initialised.")
 
-        # Fallback: OpenAI
+        # OpenAI (fallback)
         if openai is not None:
             key = self.config.fallback_api_key or self.config.api_key
             if key:
                 self._openai_client = openai.AsyncOpenAI(api_key=key)
                 logger.info("OpenAI async client initialised.")
+
+            # Cerebras is OpenAI-compatible
+            if self.config.cerebras_api_key:
+                self._cerebras_client = openai.AsyncOpenAI(
+                    base_url="https://api.cerebras.ai/v1",
+                    api_key=self.config.cerebras_api_key,
+                )
+                logger.info("Cerebras async client initialised.")
 
     @property
     def _has_groq(self) -> bool:
@@ -277,6 +286,10 @@ class _LLMClient:
     def _has_openai(self) -> bool:
         return self._openai_client is not None
 
+    @property
+    def _has_cerebras(self) -> bool:
+        return self._cerebras_client is not None
+
     async def chat(
         self,
         messages: List[Dict[str, str]],
@@ -284,31 +297,39 @@ class _LLMClient:
         temperature: float = 0.1,
         max_tokens: int = 1024,
     ) -> LLMResponse:
-        """Call the LLM and return parsed response."""
+        """Call the LLM and return parsed response.
+
+        Tries providers in order: primary → fallback.
+        Cerebras uses the OpenAI SDK with a custom base_url.
+        """
         errors: List[str] = []
 
-        # --- Try primary (Groq) ---
-        if self._has_groq:
-            try:
-                resp = await self._groq_client.chat.completions.create(
-                    model=self.config.model,
-                    messages=messages,  # type: ignore[arg-type]
-                    tools=tools,
-                    tool_choice="auto" if tools else None,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-                return self._parse_openai_response(resp)
-            except Exception as exc:
-                err = f"Groq primary call failed: {exc}"
-                logger.warning(err)
-                errors.append(err)
+        # Build ordered list of (provider_name, model, client)
+        provider_queue: List[tuple[str, str, Any]] = []
 
-        # --- Try fallback (OpenAI) ---
-        if self._has_openai:
+        # Primary provider
+        primary = self.config.provider
+        if primary == "groq" and self._has_groq:
+            provider_queue.append((primary, self.config.model, self._groq_client))
+        elif primary == "cerebras" and self._has_cerebras:
+            provider_queue.append((primary, self.config.model, self._cerebras_client))
+        elif primary == "openai" and self._has_openai:
+            provider_queue.append((primary, self.config.model, self._openai_client))
+
+        # Fallback provider (skip if same as primary)
+        fallback = self.config.fallback_provider
+        if fallback and fallback != primary:
+            if fallback == "groq" and self._has_groq:
+                provider_queue.append((fallback, self.config.fallback_model, self._groq_client))
+            elif fallback == "cerebras" and self._has_cerebras:
+                provider_queue.append((fallback, self.config.fallback_model, self._cerebras_client))
+            elif fallback == "openai" and self._has_openai:
+                provider_queue.append((fallback, self.config.fallback_model, self._openai_client))
+
+        for name, model, client in provider_queue:
             try:
-                resp = await self._openai_client.chat.completions.create(
-                    model=self.config.fallback_model,
+                resp = await client.chat.completions.create(
+                    model=model,
                     messages=messages,  # type: ignore[arg-type]
                     tools=tools,
                     tool_choice="auto" if tools else None,
@@ -317,7 +338,7 @@ class _LLMClient:
                 )
                 return self._parse_openai_response(resp)
             except Exception as exc:
-                err = f"OpenAI fallback call failed: {exc}"
+                err = f"{name} call failed: {exc}"
                 logger.warning(err)
                 errors.append(err)
 

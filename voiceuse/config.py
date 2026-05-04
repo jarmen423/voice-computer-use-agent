@@ -30,12 +30,13 @@ class STTConfig(BaseModel):
 
 
 class LLMConfig(BaseModel):
-    provider: Literal["groq", "openai"] = "groq"
+    provider: Literal["groq", "openai", "cerebras"] = "groq"
     model: str = "llama-3.3-70b-versatile"
     api_key: Optional[str] = None
-    fallback_provider: Literal["groq", "openai"] = "openai"
+    fallback_provider: Literal["groq", "openai", "cerebras"] = "openai"
     fallback_model: str = "gpt-4o-mini"
     fallback_api_key: Optional[str] = None
+    cerebras_api_key: Optional[str] = None
     temperature: float = 0.1
     max_tokens: int = 1024
 
@@ -46,6 +47,10 @@ class LLMConfig(BaseModel):
     @field_validator("fallback_api_key", mode="before")
     def resolve_fallback_api_key(cls, v):
         return v or os.environ.get("OPENAI_API_KEY")
+
+    @field_validator("cerebras_api_key", mode="before")
+    def resolve_cerebras_api_key(cls, v):
+        return v or os.environ.get("CEREBRAS_API_KEY")
 
 
 class TTSConfig(BaseModel):

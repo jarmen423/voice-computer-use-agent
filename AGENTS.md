@@ -56,6 +56,7 @@ requirements.txt       # Runtime dependencies (aligned with pyproject.toml)
 |----------|---------|
 | `GROQ_API_KEY` | STT + primary LLM |
 | `OPENAI_API_KEY` | Fallback LLM |
+| `CEREBRAS_API_KEY` | Cerebras LLM (primary or fallback) |
 | `ANTHROPIC_API_KEY` | Anthropic computer-use provider |
 | `XAI_API_KEY` | Grok Voice Realtime API plugin |
 | `PORCUPINE_ACCESS_KEY` | Wake-word engine (optional) |

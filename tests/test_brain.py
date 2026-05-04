@@ -170,6 +170,24 @@ class TestLLMClient:
         config = Config()
         config.llm.api_key = None
         config.llm.fallback_api_key = None
+        config.llm.cerebras_api_key = None
         client = _LLMClient(config.llm)
         with pytest.raises(LLMError):
             await client.chat(messages=[{"role": "user", "content": "hi"}])
+
+    @pytest.mark.asyncio
+    async def test_cerebras_provider_used_when_configured(self) -> None:
+        """When provider is 'cerebras', _LLMClient should use the Cerebras client."""
+        config = Config()
+        config.llm.provider = "cerebras"
+        config.llm.model = "llama3.1-70b"
+        config.llm.cerebras_api_key = "test-csk"
+        client = _LLMClient(config.llm)
+        assert client._has_cerebras is True
+        with patch.object(
+            client._cerebras_client.chat.completions,
+            "create",
+            AsyncMock(return_value=MagicMock(choices=[MagicMock(message=MagicMock(content="hi", tool_calls=None))], model="llama3.1-70b")),
+        ):
+            resp = await client.chat(messages=[{"role": "user", "content": "hello"}])
+        assert resp.content == "hi"

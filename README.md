@@ -21,6 +21,7 @@ A local desktop voice agent that controls your computer hands-free. All AI infer
 - API keys for the cloud services you plan to use:
   - `GROQ_API_KEY` — required for STT and primary LLM
   - `OPENAI_API_KEY` — optional fallback LLM
+  - `CEREBRAS_API_KEY` — optional, for using Cerebras as primary or fallback LLM
   - `ANTHROPIC_API_KEY` — optional, only if using Anthropic for vision
   - `XAI_API_KEY` — optional, only if using the Grok Voice plugin
 
@@ -52,6 +53,7 @@ pip install -e ".[dev]"
 ```bash
 export GROQ_API_KEY="gsk_..."
 export OPENAI_API_KEY="sk-..."        # optional fallback
+export CEREBRAS_API_KEY="csk_..."     # optional Cerebras LLM
 export ANTHROPIC_API_KEY="sk-ant-..." # optional vision
 export XAI_API_KEY="xai-..."          # optional Grok Voice
 ```
@@ -106,12 +108,13 @@ stt:
   api_key: null          # falls back to GROQ_API_KEY env var
 
 llm:
-  provider: groq
+  provider: groq          # "groq", "cerebras", or "openai"
   model: llama-3.3-70b-versatile
-  api_key: null          # falls back to GROQ_API_KEY env var
+  api_key: null           # falls back to GROQ_API_KEY env var
   fallback_provider: openai
   fallback_model: gpt-4o-mini
-  fallback_api_key: null # falls back to OPENAI_API_KEY env var
+  fallback_api_key: null  # falls back to OPENAI_API_KEY env var
+  cerebras_api_key: null  # falls back to CEREBRAS_API_KEY env var
 
 tts:
   provider: edge

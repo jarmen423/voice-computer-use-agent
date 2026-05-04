@@ -47,6 +47,12 @@ class TestConfigFromYaml:
         llm = LLMConfig(fallback_api_key=None)
         assert llm.fallback_api_key == "test-openai-key"
 
+    def test_llm_cerebras_key_resolution(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """LLMConfig cerebras_api_key should resolve from CEREBRAS_API_KEY."""
+        monkeypatch.setenv("CEREBRAS_API_KEY", "test-cerebras-key")
+        llm = LLMConfig(cerebras_api_key=None)
+        assert llm.cerebras_api_key == "test-cerebras-key"
+
     def test_yaml_override(self) -> None:
         """YAML values should override Pydantic defaults."""
         with tempfile.TemporaryDirectory() as tmpdir:
