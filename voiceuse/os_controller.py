@@ -409,7 +409,22 @@ class OSController:
                 # Restore if minimised
                 if _win32gui.IsIconic(hwnd):
                     _win32gui.ShowWindow(hwnd, _win32con.SW_RESTORE)
-                _win32gui.SetForegroundWindow(hwnd)
+                # Attach input thread so SetForegroundWindow succeeds across processes
+                try:
+                    fg_hwnd = _win32gui.GetForegroundWindow()
+                    fg_thread = _win32gui.GetWindowThreadProcessId(fg_hwnd, None)
+                    target_thread = _win32gui.GetWindowThreadProcessId(hwnd, None)
+                    if fg_thread != target_thread:
+                        # Attach threads, set foreground, detach
+                        import ctypes
+                        ctypes.windll.user32.AttachThreadInput(fg_thread, target_thread, True)
+                        _win32gui.SetForegroundWindow(hwnd)
+                        ctypes.windll.user32.AttachThreadInput(fg_thread, target_thread, False)
+                    else:
+                        _win32gui.SetForegroundWindow(hwnd)
+                except Exception:
+                    # Fallback: just try SetForegroundWindow directly
+                    _win32gui.SetForegroundWindow(hwnd)
             elif self.platform == "linux":
                 if not _xdotool_available:
                     return CommandResult(success=False, message="xdotool not available.")

@@ -4,7 +4,7 @@ A local desktop voice agent that controls your computer hands-free. All AI infer
 
 ## Features
 
-- **Wake word** ("Hey computer") or **hotkey** (hold Right Ctrl) activation
+- **Wake word** ("Computer") or **hotkey** (hold Right Ctrl) activation
 - **Voice Activity Detection** — knows when you stop speaking
 - **Speaks back** with TTS for confirmations, errors, and status updates
 - **Cross-platform** window control, typing, and screenshots (Windows primary, Linux secondary, macOS best-effort)
@@ -88,7 +88,7 @@ The first run creates a default `config.yaml` in the working directory if one do
 ### 5. Using the agent
 
 1. **Hold Right Ctrl** and speak, then release to submit.
-2. Or say **"Hey computer"** (if wake word is enabled) and speak until VAD detects silence.
+2. Or say **"Computer"** (if wake word is enabled) and speak until VAD detects silence.
 3. The agent transcribes your command, plans actions with the LLM, executes them, and speaks the result.
 
 ## Configuration (`config.yaml`)
@@ -99,7 +99,7 @@ All runtime settings live in `config.yaml`. A default file is generated automati
 audio:
   sample_rate: 16000
   hotkey: "right ctrl"
-  wake_word: "hey computer"
+  wake_word: "computer"        # free Porcupine keywords: computer, jarvis, alexa, etc.
   wake_word_model_path: null
 
 stt:

@@ -5,7 +5,7 @@ audio:
   silence_timeout_ms: 1500
   vad_aggressiveness: 2
   hotkey: "right ctrl"
-  wake_word: "hey computer"
+  wake_word: "computer"        # free Porcupine keywords: computer, jarvis, alexa, hey google, ok google, etc.
   wake_word_model_path: null
 
 stt:
