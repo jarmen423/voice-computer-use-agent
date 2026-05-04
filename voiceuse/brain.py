@@ -391,6 +391,15 @@ class Brain:
         """End-to-end pipeline: plan → safety → dispatch → result."""
         logger.info("Brain processing: %r", raw_text)
 
+        # Dry-run shortcut: return a mock plan without calling the LLM
+        if self.config.app.dry_run:
+            logger.info("[dry-run] Returning mock plan for: %r", raw_text)
+            mock_call = ToolCall(tool_name="open_app", parameters={"app_name": "chrome"})
+            return await self._execute_plan(raw_text, LLMResponse(
+                content="Dry-run mock response.",
+                tool_calls=[mock_call],
+            ))
+
         # 1. Build LLM messages
         messages: List[Dict[str, str]] = [
             {"role": "system", "content": _SYSTEM_PROMPT},
@@ -418,19 +427,17 @@ class Brain:
                 message=f"Unexpected error while planning: {exc}",
             )
 
-        # 3. No tool calls → conversational response
+        return await self._execute_plan(raw_text, plan)
+
+    async def _execute_plan(self, raw_text: str, plan: LLMResponse) -> CommandResult:
+        """Safety-screen and dispatch a planned set of tool calls."""
+        # 1. No tool calls → conversational response
         if not plan.tool_calls:
             reply = plan.content or "I understood, but I don't have a tool for that."
             logger.info("No tool_calls emitted; conversational reply.")
             return CommandResult(success=True, message=reply)
 
-        # 4. Safety screening + optional confirmation
-        voice_cmd = VoiceCommand(
-            raw_text=raw_text,
-            intent=plan.tool_calls[0].tool_name if plan.tool_calls else None,
-            tool_calls=plan.tool_calls,
-        )
-
+        # 2. Safety screening + optional confirmation
         confirmed_calls: List[ToolCall] = []
         blocked_calls: List[Tuple[ToolCall, str]] = []
 
@@ -442,8 +449,6 @@ class Brain:
                 blocked_calls.append(
                     (tc, safety_result.confirmation_prompt or "Safety check blocked this action.")
                 )
-                voice_cmd.requires_confirmation = True
-                voice_cmd.confirmation_prompt = safety_result.confirmation_prompt
 
         # If any call needs confirmation, run the spoken confirmation loop
         if blocked_calls:
@@ -465,7 +470,7 @@ class Brain:
                 message="Action cancelled after confirmation.",
             )
 
-        # 5. Dispatch confirmed calls
+        # 3. Dispatch confirmed calls
         results: List[str] = []
         for tc in confirmed_calls:
             try:
@@ -523,39 +528,7 @@ class Brain:
                     return result.message
                 return f"Typed text into {'app ' + app_name if app_name else 'current focus'}."
 
-            # Adapter: find_chat is not yet implemented in OSController — emulate via find_window
-            if name == "find_chat":
-                app_name = params.get("app_name", "")
-                chat_label = params.get("chat_label", "")
-                window = self.os_controller.find_window(app_name)
-                if window is None:
-                    raise RuntimeError(f"App '{app_name}' not found for find_chat.")
-                focus_res = self.os_controller.focus_window(window)
-                if isinstance(focus_res, CommandResult) and not focus_res.success:
-                    return f"Failed to focus {app_name}: {focus_res.message}"
-                # Best-effort: type the chat label (many apps support Ctrl+K search)
-                self.os_controller.type_text(chat_label)
-                self.os_controller.press_key("enter")
-                return f"Focused {app_name} and entered '{chat_label}'."
 
-            # Adapter: execute_system is not yet in OSController — run via subprocess
-            if name == "execute_system":
-                import subprocess
-                command = params.get("command", "")
-                logger.warning("Executing system command: %s", command)
-                proc = subprocess.run(
-                    command,
-                    shell=True,
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
-                stdout = proc.stdout.strip()[:200] if proc.stdout else ""
-                if proc.returncode == 0:
-                    return f"Command executed. Output: {stdout}" if stdout else "Command executed successfully."
-                else:
-                    stderr = proc.stderr.strip()[:200] if proc.stderr else ""
-                    raise RuntimeError(f"Command failed (exit {proc.returncode}): {stderr}")
 
             # Direct dispatch for everything else
             method = getattr(self.os_controller, name, None)

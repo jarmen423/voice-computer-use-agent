@@ -472,6 +472,8 @@ class OSController:
     # ------------------------------------------------------------------
     def screenshot_monitor(self, monitor_index: int, output_path: str) -> str:
         """Grab a specific monitor and save to *output_path*."""
+        if MSS is None:
+            raise RuntimeError("mss is not installed; cannot take screenshots.")
         with MSS() as sct:
             # mss indices: 0 = all, 1..N = individual
             if monitor_index < 1 or monitor_index >= len(sct.monitors):
@@ -485,6 +487,8 @@ class OSController:
 
     def screenshot_window(self, window: WindowInfo, output_path: str) -> str:
         """Grab the region defined by *window.rect* and save to *output_path*."""
+        if MSS is None:
+            raise RuntimeError("mss is not installed; cannot take screenshots.")
         x, y, w, h = window.rect
         region = {"left": x, "top": y, "width": w, "height": h}
         with MSS() as sct:
@@ -499,15 +503,114 @@ class OSController:
     # ------------------------------------------------------------------
     def click(self, x: int, y: int) -> None:
         """Click at global screen coordinates (x, y)."""
+        if pyautogui is None:
+            raise RuntimeError("pyautogui is not installed; cannot simulate input.")
         pyautogui.click(x, y)
 
     def type_text(self, text: str) -> None:
         """Type *text* with a small interval between keystrokes."""
+        if pyautogui is None:
+            raise RuntimeError("pyautogui is not installed; cannot simulate input.")
         pyautogui.typewrite(text, interval=0.01)
 
     def press_key(self, key: str) -> None:
         """Press a single key (e.g. 'enter', 'tab', 'esc')."""
+        if pyautogui is None:
+            raise RuntimeError("pyautogui is not installed; cannot simulate input.")
         pyautogui.press(key)
+
+    # ------------------------------------------------------------------
+    # System command execution (moved from Brain for architecture cohesion)
+    # ------------------------------------------------------------------
+    # Minimal allow-list of safe command prefixes. Anything else requires
+    # explicit override (not implemented) or is rejected when shell=True.
+    _ALLOWED_COMMANDS: set[str] = {
+        "echo", "cat", "ls", "dir", "pwd", "cd", "mkdir", "touch",
+        "git", "python", "python3", "node", "npm", "yarn", "pnpm",
+        "pip", "pip3", "pytest", "cargo", "go", "rustc",
+        "start", "open", "code", "notepad", "calc",
+    }
+
+    def execute_system(self, command: str, allow_shell: bool = False) -> CommandResult:
+        """Execute a system command with safety checks.
+
+        By default commands are parsed with ``shlex.split()`` and run with
+        ``shell=False``.  If ``allow_shell`` is True the raw string is passed
+        through (DANGEROUS — only for user-supplied compound commands).
+        """
+        if not command or not command.strip():
+            return CommandResult(success=False, message="Empty command.")
+
+        cmd_str = command.strip()
+
+        # Determine whether to use shell=False or shell=True
+        use_shell = allow_shell
+        if not use_shell:
+            # Try to split safely; if shlex fails, fall back to shell=True
+            # but only if the command looks "simple".
+            try:
+                cmd_parts = shlex.split(cmd_str)
+            except ValueError:
+                return CommandResult(
+                    success=False,
+                    message="Could not parse command safely.",
+                )
+            if not cmd_parts:
+                return CommandResult(success=False, message="Empty command after parsing.")
+            # Basic prefix check — first token without path
+            first_token = os.path.basename(cmd_parts[0]).lower()
+            if first_token not in self._ALLOWED_COMMANDS:
+                logger.warning("Command '%s' not in allow-list; blocking.", first_token)
+                return CommandResult(
+                    success=False,
+                    message=f"Command '{first_token}' is not in the safety allow-list.",
+                )
+            cmd_parts = cmd_parts
+        else:
+            cmd_parts = cmd_str
+
+        logger.warning("Executing system command: %s", cmd_str)
+        try:
+            proc = subprocess.run(
+                cmd_parts,
+                shell=use_shell,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            stdout = proc.stdout.strip()[:200] if proc.stdout else ""
+            if proc.returncode == 0:
+                msg = f"Command executed. Output: {stdout}" if stdout else "Command executed successfully."
+                return CommandResult(success=True, message=msg)
+            stderr = proc.stderr.strip()[:200] if proc.stderr else ""
+            return CommandResult(
+                success=False,
+                message=f"Command failed (exit {proc.returncode}): {stderr}",
+            )
+        except Exception as exc:
+            logger.error("execute_system failed: %s", exc)
+            return CommandResult(success=False, message=f"Failed to execute command: {exc}")
+
+    # ------------------------------------------------------------------
+    # Chat finder (best-effort shim — moved from Brain)
+    # ------------------------------------------------------------------
+    def find_chat(self, app_name: str, chat_label: str) -> CommandResult:
+        """Focus *app_name* and type *chat_label* followed by Enter.
+
+        This is a best-effort shim: many modern apps (Discord, Slack,
+        Teams) support a universal search via Ctrl+K.  We focus the app
+        and type the label, but we do not verify the chat actually opens.
+        """
+        window = self.find_window(app_name)
+        if window is None:
+            return CommandResult(success=False, message=f"App '{app_name}' not found for find_chat.")
+        focus_res = self.focus_window(window)
+        if isinstance(focus_res, CommandResult) and not focus_res.success:
+            return CommandResult(success=False, message=f"Failed to focus {app_name}: {focus_res.message}")
+        # Best-effort: type the chat label (many apps support Ctrl+K search)
+        self.type_text(chat_label)
+        self.press_key("enter")
+        return CommandResult(success=True, message=f"Focused {app_name} and entered '{chat_label}'.")
 
     # ------------------------------------------------------------------
     # Browser
@@ -538,6 +641,8 @@ class OSController:
         time.sleep(0.5)
 
         # Focus address bar: Ctrl+L works in Chrome, Firefox, Edge, Safari
+        if pyautogui is None:
+            return CommandResult(success=False, message="pyautogui is not installed; cannot simulate browser input.")
         pyautogui.keyDown("ctrl")
         pyautogui.keyDown("l")
         pyautogui.keyUp("l")

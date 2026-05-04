@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import threading
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 try:
     import edge_tts

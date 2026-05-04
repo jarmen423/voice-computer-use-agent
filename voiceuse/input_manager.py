@@ -527,7 +527,14 @@ class InputManager:
     # ------------------------------------------------------------------
 
     async def transcribe_audio(self, audio_bytes: bytes) -> str:
-        """Save audio bytes to a temporary WAV and transcribe via Groq Whisper."""
+        """Save audio bytes to a temporary WAV and transcribe via Groq Whisper.
+
+        In dry-run mode returns a canned transcription without calling the API.
+        """
+        if self.config.app.dry_run:
+            logger.info("[dry-run] Returning mock transcription.")
+            return "open chrome"
+
         if self._groq_client is None:
             logger.error("Groq client not initialised (missing API key or groq package).")
             return ""
@@ -538,13 +545,15 @@ class InputManager:
                 tmp.write(audio_bytes)
                 tmp_path = Path(tmp.name)
 
-            with open(tmp_path, "rb") as audio_file:
-                response = self._groq_client.audio.transcriptions.create(
-                    file=audio_file,
-                    model=self.stt_config.model,
-                    language=self.stt_config.language,
-                )
+            def _transcribe() -> Any:
+                with open(tmp_path, "rb") as audio_file:
+                    return self._groq_client.audio.transcriptions.create(
+                        file=audio_file,
+                        model=self.stt_config.model,
+                        language=self.stt_config.language,
+                    )
 
+            response = await asyncio.to_thread(_transcribe)
             transcription: str = response.text if hasattr(response, "text") else str(response)
             logger.info("Transcription: %s", transcription)
             return transcription.strip()
