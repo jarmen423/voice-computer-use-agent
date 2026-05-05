@@ -1,6 +1,7 @@
 """Unit tests for the closed-loop computer-use behavior in VisionBridge."""
 
 from unittest.mock import AsyncMock
+from types import SimpleNamespace
 
 import pytest
 
@@ -102,3 +103,65 @@ def test_capture_target_reuses_short_lived_cache_and_force_refreshes() -> None:
     assert first.screenshot_path == cached.screenshot_path
     assert refreshed.screenshot_path != first.screenshot_path
     assert len(fake_os.screenshots) == 2
+
+
+@pytest.mark.asyncio
+async def test_anthropic_action_parses_type_tool(tmp_path) -> None:
+    """Anthropic computer-use type actions should map to the local type action."""
+    fake_os = FakeOSController()
+    config = Config()
+    config.computer_use.provider = "anthropic"
+    bridge = VisionBridge(config=config, os_controller=fake_os)  # type: ignore[arg-type]
+    screenshot = tmp_path / "screen.png"
+    screenshot.write_bytes(b"png")
+    target = bridge._capture_target(app_name=None)
+    target.screenshot_path = str(screenshot)
+    bridge._get_anthropic_client = lambda: SimpleNamespace(  # type: ignore[method-assign]
+        messages=SimpleNamespace(
+            create=lambda **_: SimpleNamespace(
+                content=[
+                    SimpleNamespace(
+                        type="tool_use",
+                        input={"action": "type", "text": "hello"},
+                    )
+                ]
+            )
+        )
+    )
+
+    action = await bridge._call_anthropic_action("type hello", target, [])
+
+    assert action["success"] is True
+    assert action["action"] == "type"
+    assert action["text"] == "hello"
+
+
+@pytest.mark.asyncio
+async def test_anthropic_action_parses_key_tool(tmp_path) -> None:
+    """Anthropic computer-use key actions should map to the local key action."""
+    fake_os = FakeOSController()
+    config = Config()
+    config.computer_use.provider = "anthropic"
+    bridge = VisionBridge(config=config, os_controller=fake_os)  # type: ignore[arg-type]
+    screenshot = tmp_path / "screen.png"
+    screenshot.write_bytes(b"png")
+    target = bridge._capture_target(app_name=None)
+    target.screenshot_path = str(screenshot)
+    bridge._get_anthropic_client = lambda: SimpleNamespace(  # type: ignore[method-assign]
+        messages=SimpleNamespace(
+            create=lambda **_: SimpleNamespace(
+                content=[
+                    SimpleNamespace(
+                        type="tool_use",
+                        input={"action": "key", "text": "enter"},
+                    )
+                ]
+            )
+        )
+    )
+
+    action = await bridge._call_anthropic_action("press enter", target, [])
+
+    assert action["success"] is True
+    assert action["action"] == "key"
+    assert action["key"] == "enter"

@@ -469,8 +469,9 @@ class VisionBridge:
 
         # Extract action and coordinates from the first tool_use
         tool = tool_uses[0]
-        action = tool.input.get("action", "") if hasattr(tool, "input") else ""
-        coords = tool.input.get("coordinate", []) if hasattr(tool, "input") else []
+        tool_input = tool.input if hasattr(tool, "input") else {}
+        action = tool_input.get("action", "")
+        coords = tool_input.get("coordinate", [])
 
         if isinstance(coords, (list, tuple)) and len(coords) >= 2:
             rel_x, rel_y = int(coords[0]), int(coords[1])
@@ -485,6 +486,22 @@ class VisionBridge:
                 "y": rel_y,
                 "confidence": 1.0,
                 "message": f"Anthropic tool action: {action}",
+            }
+
+        if action == "type":
+            return {
+                "success": True,
+                "action": "type",
+                "text": str(tool_input.get("text", "")),
+                "message": "Anthropic tool action: type",
+            }
+
+        if action == "key":
+            return {
+                "success": True,
+                "action": "key",
+                "key": str(tool_input.get("text") or tool_input.get("key") or ""),
+                "message": "Anthropic tool action: key",
             }
 
         return {
