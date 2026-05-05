@@ -1,9 +1,10 @@
 """Auto-updater client for VoiceUse.
 
 Checks a remote JSON manifest for newer versions, downloads the update,
-and applies it on next restart.
+verifies its digest, and applies it on next restart.
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -31,6 +32,13 @@ UPDATE_MANIFEST_URL = os.environ.get(
 # ---------------------------------------------------------------------------
 
 class UpdateInfo:
+    """Parsed update manifest entry.
+
+    The ``signature`` field currently supports ``sha256:<hex-digest>``. The
+    updater refuses to apply unsigned or mismatched downloads because replacing
+    the running executable is equivalent to local code execution.
+    """
+
     def __init__(self, data: Dict[str, Any]) -> None:
         self.version: str = data.get("version", "")
         self.url: str = data.get("url", "")
@@ -82,9 +90,18 @@ class Updater:
             return a != b
 
     def download(self, info: UpdateInfo, dest_dir: Optional[Path] = None) -> Optional[Path]:
-        """Download the update to a temporary location."""
+        """Download and verify the update to a temporary location.
+
+        Returns:
+            Path to the verified update binary, or ``None`` if the download is
+            missing a supported signature or digest verification fails.
+        """
         if dest_dir is None:
             dest_dir = Path(tempfile.gettempdir())
+
+        if not self._has_supported_signature(info.signature):
+            logger.error("Update manifest is missing a supported sha256 signature.")
+            return None
 
         ext = ".exe" if sys.platform.startswith("win") else ""
         dest = dest_dir / f"voiceuse_update_{info.version}{ext}"
@@ -92,11 +109,34 @@ class Updater:
         logger.info("Downloading update from %s → %s", info.url, dest)
         try:
             urllib.request.urlretrieve(info.url, str(dest))
-            # TODO: verify signature
+            if not self._verify_sha256(dest, info.signature):
+                logger.error("Downloaded update failed sha256 verification.")
+                dest.unlink(missing_ok=True)
+                return None
             return dest
         except Exception as exc:
             logger.error("Download failed: %s", exc)
             return None
+
+    @staticmethod
+    def _has_supported_signature(signature: str) -> bool:
+        """Return true for manifest signatures this updater can verify."""
+        if not signature.startswith("sha256:"):
+            return False
+        digest = signature.split(":", 1)[1].strip().lower()
+        return len(digest) == 64 and all(ch in "0123456789abcdef" for ch in digest)
+
+    @classmethod
+    def _verify_sha256(cls, path: Path, signature: str) -> bool:
+        """Compare a downloaded file's SHA-256 digest with the manifest."""
+        if not cls._has_supported_signature(signature):
+            return False
+        expected = signature.split(":", 1)[1].strip().lower()
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest().lower() == expected
 
     def apply(self, update_path: Path) -> None:
         """Apply the update and restart.
