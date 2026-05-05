@@ -26,6 +26,7 @@ except ImportError:
 
 from voiceuse.safety import SafetyGuard, SafetyCheckResult
 from voiceuse.os_controller import OSController
+from voiceuse.retry import async_retry
 from voiceuse.vision_bridge import VisionBridge
 from voiceuse.tool_registry import TOOL_SCHEMAS, dispatch_tool_call
 
@@ -158,11 +159,11 @@ class _LLMClient:
 
         for name, model, client in provider_queue:
             try:
-                resp = await client.chat.completions.create(
+                resp = await self._create_chat_completion(
+                    client=client,
                     model=model,
-                    messages=messages,  # type: ignore[arg-type]
+                    messages=messages,
                     tools=tools,
-                    tool_choice="auto" if tools else None,
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )
@@ -174,6 +175,37 @@ class _LLMClient:
 
         raise LLMError(
             f"All LLM providers failed. Errors: {'; '.join(errors)}"
+        )
+
+    @async_retry(
+        max_attempts=3,
+        base_delay=0.05,
+        max_delay=0.5,
+        jitter=False,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError, asyncio.TimeoutError),
+    )
+    async def _create_chat_completion(
+        self,
+        client: Any,
+        model: str,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]],
+        temperature: float,
+        max_tokens: int,
+    ) -> Any:
+        """Call one OpenAI-compatible provider with transient-error retries.
+
+        The provider fallback loop should only move to the next model after the
+        current provider has had a real chance to recover from short network
+        blips, local DNS hiccups, or SDK timeout errors.
+        """
+        return await client.chat.completions.create(
+            model=model,
+            messages=messages,  # type: ignore[arg-type]
+            tools=tools,
+            tool_choice="auto" if tools else None,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
 
     @staticmethod

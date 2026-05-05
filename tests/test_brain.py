@@ -1,5 +1,6 @@
 """Unit tests for voiceuse.brain dispatch logic (mocked, no real API calls)."""
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -237,3 +238,26 @@ class TestLLMClient:
         ):
             resp = await client.chat(messages=[{"role": "user", "content": "hello"}])
         assert resp.content == "hi"
+
+    @pytest.mark.asyncio
+    async def test_provider_retries_transient_errors_before_fallback(self) -> None:
+        """Transient provider errors should be retried before the fallback path runs."""
+        config = Config()
+        config.llm.provider = "openai"
+        config.llm.model = "gpt-test"
+        config.llm.fallback_provider = None
+
+        response = MagicMock(
+            choices=[MagicMock(message=MagicMock(content="recovered", tool_calls=None))],
+            model="gpt-test",
+        )
+        create = AsyncMock(side_effect=[ConnectionError("temporary"), response])
+        client = _LLMClient(config.llm)
+        client._openai_client = SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=create))
+        )
+
+        result = await client.chat(messages=[{"role": "user", "content": "hello"}])
+
+        assert result.content == "recovered"
+        assert create.await_count == 2
