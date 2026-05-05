@@ -1,6 +1,12 @@
-"""Shared data models for VoiceUse."""
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+"""Shared data models for VoiceUse.
+
+These dataclasses are the small, serializable records passed between the
+orchestration layer, tool registry, and operating-system adapters. Keeping this
+module focused on records that are still used makes the agent easier to reason
+about when future work adds more stateful computer-use behavior.
+"""
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
 from enum import Enum
 
 
@@ -45,12 +51,3 @@ class CommandResult:
     message: str
     data: Optional[Dict[str, Any]] = None
 
-
-@dataclass
-class VoiceCommand:
-    """A parsed voice command."""
-    raw_text: str
-    intent: Optional[str] = None
-    tool_calls: List[ToolCall] = field(default_factory=list)
-    requires_confirmation: bool = False
-    confirmation_prompt: Optional[str] = None

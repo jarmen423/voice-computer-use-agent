@@ -13,11 +13,10 @@ import json
 import logging
 import os
 import platform
-import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 logger = logging.getLogger("voiceuse.licensing")
 

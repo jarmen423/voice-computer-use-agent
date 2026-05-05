@@ -7,6 +7,7 @@ modules, and returns a structured result.
 
 import json
 import logging
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -236,6 +237,7 @@ class Brain:
         self.llm = _LLMClient(config.llm)
         self._conversation_history: List[Dict[str, Any]] = []
         self._max_history_messages = 30
+        self._max_agent_steps = 3
 
     # ------------------------------------------------------------------
     # Public API
@@ -257,42 +259,72 @@ class Brain:
             self._record_turn(raw_text, plan, result)
             return result
 
-        # 1. Build LLM messages with desktop context
-        desktop_context = self._build_desktop_context()
+        desktop_context = await self._build_desktop_context()
         dynamic_prompt = _SYSTEM_PROMPT
         if desktop_context:
             dynamic_prompt += f"\n\n{desktop_context}"
 
+        command_messages: List[Dict[str, Any]] = [{"role": "user", "content": raw_text}]
         messages: List[Dict[str, Any]] = [
             {"role": "system", "content": dynamic_prompt},
             *self._conversation_history,
-            {"role": "user", "content": raw_text},
+            *command_messages,
         ]
 
-        # 2. LLM planning call
-        try:
-            plan = await self.llm.chat(
-                messages=messages,
-                tools=TOOL_SCHEMAS,
-                temperature=self.config.llm.temperature,
-                max_tokens=self.config.llm.max_tokens,
-            )
-        except LLMError as exc:
-            logger.error("LLM planning failed: %s", exc)
-            return CommandResult(
-                success=False,
-                message=f"I couldn't reach the language model: {exc}",
-            )
-        except Exception as exc:
-            logger.exception("Unexpected error during LLM planning")
-            return CommandResult(
-                success=False,
-                message=f"Unexpected error while planning: {exc}",
-            )
+        final_result = CommandResult(success=False, message="No plan was produced.")
+        for step in range(1, self._max_agent_steps + 1):
+            try:
+                plan = await self.llm.chat(
+                    messages=messages,
+                    tools=TOOL_SCHEMAS,
+                    temperature=self.config.llm.temperature,
+                    max_tokens=self.config.llm.max_tokens,
+                )
+            except LLMError as exc:
+                logger.error("LLM planning failed: %s", exc)
+                return CommandResult(
+                    success=False,
+                    message=f"I couldn't reach the language model: {exc}",
+                )
+            except Exception as exc:
+                logger.exception("Unexpected error during LLM planning")
+                return CommandResult(
+                    success=False,
+                    message=f"Unexpected error while planning: {exc}",
+                )
 
-        result = await self._execute_plan(raw_text, plan)
-        self._record_turn(raw_text, plan, result)
-        return result
+            if not plan.tool_calls:
+                final_result = CommandResult(
+                    success=True,
+                    message=plan.content or final_result.message,
+                    data=final_result.data,
+                )
+                command_messages.append({"role": "assistant", "content": final_result.message})
+                self._commit_command_history(command_messages)
+                return final_result
+
+            result = await self._execute_plan(raw_text, plan)
+            final_result = result
+            self._append_plan_result_messages(command_messages, plan, result)
+            self._append_plan_result_messages(messages, plan, result)
+
+            if not result.success and "cancelled" in result.message.lower():
+                self._commit_command_history(command_messages)
+                return result
+
+            logger.info("Agent step %d completed: %s", step, result.message)
+
+        final_result = CommandResult(
+            success=final_result.success,
+            message=(
+                f"Reached the {self._max_agent_steps}-step planning limit. "
+                f"Last result: {final_result.message}"
+            ),
+            data=final_result.data,
+        )
+        command_messages.append({"role": "assistant", "content": f"Result: {final_result.message}"})
+        self._commit_command_history(command_messages)
+        return final_result
 
     async def _execute_plan(self, raw_text: str, plan: LLMResponse) -> CommandResult:
         """Safety-screen and dispatch a planned set of tool calls."""
@@ -357,6 +389,65 @@ class Brain:
     # Conversation memory
     # ------------------------------------------------------------------
 
+    def _append_plan_result_messages(
+        self,
+        messages: List[Dict[str, Any]],
+        plan: LLMResponse,
+        result: CommandResult,
+    ) -> None:
+        """Append an assistant tool plan and local tool results to a message list.
+
+        Args:
+            messages: Mutable OpenAI-compatible conversation buffer.
+            plan: Model response containing tool calls.
+            result: Local execution result produced by the tool dispatcher.
+        """
+        assistant_tool_calls: List[Dict[str, Any]] = []
+        for index, tool_call in enumerate(plan.tool_calls):
+            if not tool_call.call_id:
+                tool_call.call_id = f"voiceuse_call_{len(messages)}_{index}"
+            assistant_tool_calls.append(
+                {
+                    "id": tool_call.call_id,
+                    "type": "function",
+                    "function": {
+                        "name": tool_call.tool_name,
+                        "arguments": json.dumps(tool_call.parameters),
+                    },
+                }
+            )
+
+        messages.append(
+            {
+                "role": "assistant",
+                "content": plan.content or "I will use local tools to continue.",
+                "tool_calls": assistant_tool_calls,
+            }
+        )
+        for tool_call in plan.tool_calls:
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call.call_id,
+                    "name": tool_call.tool_name,
+                    "content": json.dumps(
+                        {
+                            "success": result.success,
+                            "message": result.message,
+                            "data": result.data or {},
+                        }
+                    ),
+                }
+            )
+
+        messages.append({"role": "assistant", "content": f"Result: {result.message}"})
+
+    def _commit_command_history(self, command_messages: List[Dict[str, Any]]) -> None:
+        """Store a completed command transcript in the rolling conversation window."""
+        self._conversation_history.extend(command_messages)
+        if len(self._conversation_history) > self._max_history_messages:
+            self._conversation_history = self._conversation_history[-self._max_history_messages :]
+
     def _record_turn(
         self,
         raw_text: str,
@@ -377,80 +468,37 @@ class Brain:
             plan: The model response used for this turn.
             result: The local execution result after safety and dispatch.
         """
-        self._conversation_history.append({"role": "user", "content": raw_text})
+        command_messages: List[Dict[str, Any]] = [{"role": "user", "content": raw_text}]
 
         if plan.tool_calls:
-            assistant_tool_calls: List[Dict[str, Any]] = []
-            for index, tool_call in enumerate(plan.tool_calls):
-                if not tool_call.call_id:
-                    tool_call.call_id = f"voiceuse_call_{len(self._conversation_history)}_{index}"
-                assistant_tool_calls.append(
-                    {
-                        "id": tool_call.call_id,
-                        "type": "function",
-                        "function": {
-                            "name": tool_call.tool_name,
-                            "arguments": json.dumps(tool_call.parameters),
-                        },
-                    }
-                )
-
-            self._conversation_history.append(
-                {
-                    "role": "assistant",
-                    "content": plan.content or "I will use local tools to complete that.",
-                    "tool_calls": assistant_tool_calls,
-                }
-            )
-            for tool_call in plan.tool_calls:
-                self._conversation_history.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tool_call.call_id,
-                        "name": tool_call.tool_name,
-                        "content": json.dumps(
-                            {
-                                "success": result.success,
-                                "message": result.message,
-                                "data": result.data or {},
-                            }
-                        ),
-                    }
-                )
-
-            self._conversation_history.append(
-                {
-                    "role": "assistant",
-                    "content": f"Result: {result.message}",
-                }
-            )
+            self._append_plan_result_messages(command_messages, plan, result)
         else:
-            self._conversation_history.append(
+            command_messages.append(
                 {
                     "role": "assistant",
                     "content": plan.content or result.message,
                 }
             )
-
-        if len(self._conversation_history) > self._max_history_messages:
-            self._conversation_history = self._conversation_history[-self._max_history_messages :]
+        self._commit_command_history(command_messages)
 
     # ------------------------------------------------------------------
     # Desktop context for LLM
     # ------------------------------------------------------------------
 
-    def _build_desktop_context(self) -> str:
+    async def _build_desktop_context(self) -> str:
         """Snapshot open windows and app aliases into a prompt fragment.
 
         This gives the LLM awareness of what's actually running and what
         apps are available, so it can resolve ambiguous names like
         'comment browser' → 'Comet Browser' or 'code' → 'Visual Studio Code'.
+        Window enumeration can use platform APIs or subprocesses, so it runs in
+        a worker thread instead of blocking the event loop.
         """
         lines: List[str] = []
 
         # Open windows
         try:
-            windows = self.os_controller.list_windows()
+            windows = await asyncio.to_thread(self.os_controller.list_windows)
             if windows:
                 titles = [w.title for w in windows[:15]]  # cap to avoid token bloat
                 lines.append("Currently open windows:")

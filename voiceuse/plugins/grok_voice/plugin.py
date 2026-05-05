@@ -21,6 +21,7 @@ from voiceuse.plugins.grok_voice.client import XAIRealtimeClient
 from voiceuse.plugins.grok_voice.audio_streamer import GrokAudioStreamer
 from voiceuse.models import ToolCall
 from voiceuse.tool_registry import TOOL_SCHEMAS, dispatch_tool_call
+from voiceuse.audio_device import AudioDevice
 
 logger = logging.getLogger("voiceuse.grok_voice.plugin")
 
@@ -41,6 +42,7 @@ class GrokVoicePlugin(PluginBase):
         self.safety_guard: Optional[SafetyGuard] = None
         self.tts_manager: Optional[Any] = None
         self.get_confirmation_text: Optional[Callable[[], Awaitable[str]]] = None
+        self.audio_device: Optional[AudioDevice] = None
 
         self._client: Optional[XAIRealtimeClient] = None
         self._streamer: Optional[GrokAudioStreamer] = None
@@ -62,6 +64,7 @@ class GrokVoicePlugin(PluginBase):
         safety_guard: SafetyGuard,
         tts_manager: Any,
         get_confirmation_text: Callable[[], Awaitable[str]],
+        audio_device: AudioDevice,
     ) -> None:
         """Store subsystem references and connect to xAI Realtime."""
         self.config = config
@@ -70,6 +73,7 @@ class GrokVoicePlugin(PluginBase):
         self.safety_guard = safety_guard
         self.tts_manager = tts_manager
         self.get_confirmation_text = get_confirmation_text
+        self.audio_device = audio_device
 
         gcfg = config.plugins.grok_voice
         if not gcfg.api_key:
@@ -101,6 +105,7 @@ class GrokVoicePlugin(PluginBase):
             send_queue=self._client.send_queue,
             receive_queue=self._client.receive_queue,
             interruption_queue=self._client.interruption_queue,
+            audio_device=self.audio_device,
         )
         await self._streamer.start()
 

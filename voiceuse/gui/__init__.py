@@ -10,10 +10,7 @@ A tkinter-based GUI that walks new users through:
 7. Done / launch
 """
 
-import asyncio
 import logging
-import os
-import sys
 import tempfile
 import threading
 import tkinter as tk
@@ -22,7 +19,7 @@ from tkinter import messagebox, ttk
 from typing import Any, Callable, Dict, Optional
 
 from voiceuse.config import Config
-from voiceuse.licensing import LicenseClient, LicenseInfo
+from voiceuse.licensing import LicenseClient
 
 logger = logging.getLogger("voiceuse.gui.wizard")
 
@@ -30,8 +27,13 @@ logger = logging.getLogger("voiceuse.gui.wizard")
 try:
     from voiceuse.licensing import load_api_keys, store_api_keys
 except Exception:
-    load_api_keys = lambda: {}  # type: ignore
-    store_api_keys = lambda _: None  # type: ignore
+    def load_api_keys() -> dict[str, str]:  # type: ignore[no-redef]
+        """Return no saved keys when the secure-storage adapter is unavailable."""
+        return {}
+
+    def store_api_keys(_: dict[str, str]) -> None:  # type: ignore[no-redef]
+        """Ignore key persistence when the secure-storage adapter is unavailable."""
+        return None
 
 
 class OnboardingWizard:

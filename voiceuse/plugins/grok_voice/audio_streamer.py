@@ -7,20 +7,14 @@ user starts speaking).
 
 import asyncio
 import logging
-import threading
 from typing import Any, Optional
+
+from voiceuse.audio_device import AudioDevice
 
 logger = logging.getLogger("voiceuse.grok_voice.audio_streamer")
 
-# PyAudio is imported lazily so the module loads even when audio is unavailable.
-try:
-    import pyaudio
-except ImportError:  # pragma: no cover
-    pyaudio = None  # type: ignore[assignment]
-
 SAMPLE_RATE: int = 24000
 CHANNELS: int = 1
-FORMAT: int = pyaudio.paInt16 if pyaudio else 0  # s16le
 CHUNK_SIZE: int = 960  # 20 ms @ 24 kHz (480 samples * 2 bytes)
 
 
@@ -39,12 +33,13 @@ class GrokAudioStreamer:
         send_queue: asyncio.Queue[bytes],
         receive_queue: asyncio.Queue[bytes],
         interruption_queue: asyncio.Queue[None],
+        audio_device: Optional[AudioDevice] = None,
     ) -> None:
         self.send_queue = send_queue
         self.receive_queue = receive_queue
         self.interruption_queue = interruption_queue
+        self.audio_device = audio_device or AudioDevice()
 
-        self._pa: Optional[Any] = None
         self._input_stream: Optional[Any] = None
         self._output_stream: Optional[Any] = None
         self._stop_event: asyncio.Event = asyncio.Event()
@@ -59,19 +54,19 @@ class GrokAudioStreamer:
 
     async def start(self) -> None:
         """Open PyAudio streams and start capture / playback / interruption tasks."""
-        if pyaudio is None:
+        if not self.audio_device.is_available:
             raise RuntimeError("pyaudio is not installed; cannot start audio streaming.")
 
-        self._pa = pyaudio.PyAudio()
+        self.audio_device.ensure_started()
         self._stop_event.clear()
 
         # Open input (microphone) stream
         try:
-            self._input_stream = self._pa.open(
-                format=FORMAT,
+            self._input_stream = self.audio_device.open_input_stream(
+                owner="grok-voice-capture",
+                format=self.audio_device.pa_int16,
                 channels=CHANNELS,
                 rate=SAMPLE_RATE,
-                input=True,
                 frames_per_buffer=CHUNK_SIZE,
             )
             logger.info("Microphone stream opened at %d Hz.", SAMPLE_RATE)
@@ -81,11 +76,11 @@ class GrokAudioStreamer:
 
         # Open output (speaker) stream
         try:
-            self._output_stream = self._pa.open(
-                format=FORMAT,
+            self._output_stream = self.audio_device.open_output_stream(
+                owner="grok-voice-playback",
+                format=self.audio_device.pa_int16,
                 channels=CHANNELS,
                 rate=SAMPLE_RATE,
-                output=True,
                 frames_per_buffer=CHUNK_SIZE,
             )
             logger.info("Speaker stream opened at %d Hz.", SAMPLE_RATE)
@@ -113,20 +108,7 @@ class GrokAudioStreamer:
 
         for stream in (self._input_stream, self._output_stream):
             if stream is not None:
-                try:
-                    stream.stop_stream()
-                except Exception:
-                    pass
-                try:
-                    stream.close()
-                except Exception:
-                    pass
-
-        if self._pa is not None:
-            try:
-                self._pa.terminate()
-            except Exception:
-                pass
+                self.audio_device.close_stream(stream)
 
         logger.info("Audio streamer stopped.")
 

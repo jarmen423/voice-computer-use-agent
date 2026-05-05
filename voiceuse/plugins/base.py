@@ -5,12 +5,13 @@ Defines the lifecycle hooks that every plugin must implement so that
 """
 
 import abc
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable
 
 from voiceuse.config import Config
 from voiceuse.os_controller import OSController
 from voiceuse.vision_bridge import VisionBridge
 from voiceuse.safety import SafetyGuard
+from voiceuse.audio_device import AudioDevice
 
 
 class PluginBase(abc.ABC):
@@ -34,6 +35,7 @@ class PluginBase(abc.ABC):
         safety_guard: SafetyGuard,
         tts_manager: Any,
         get_confirmation_text: Callable[[], Awaitable[str]],
+        audio_device: AudioDevice,
     ) -> None:
         """Called once when the plugin is activated.
 
@@ -45,6 +47,7 @@ class PluginBase(abc.ABC):
             tts_manager: Shared TTS manager (for fallback announcements).
             get_confirmation_text: Async callable that captures a spoken
                 confirmation utterance.
+            audio_device: Shared audio device owner for capture/playback.
         """
 
     @abc.abstractmethod

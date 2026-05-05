@@ -1,7 +1,6 @@
 """Unit tests for voiceuse.models."""
 
-import pytest
-from voiceuse.models import CommandResult, MonitorInfo, ToolCall, VoiceCommand, WindowInfo
+from voiceuse.models import CommandResult, MonitorInfo, ToolCall, WindowInfo
 
 
 def test_command_result_defaults() -> None:
@@ -31,11 +30,3 @@ def test_tool_call_creation() -> None:
     assert tc.tool_name == "open_app"
     assert tc.parameters == {"app_name": "chrome"}
 
-
-def test_voice_command_defaults() -> None:
-    """VoiceCommand should provide sensible defaults."""
-    vc = VoiceCommand(raw_text="open chrome")
-    assert vc.intent is None
-    assert vc.tool_calls == []
-    assert vc.requires_confirmation is False
-    assert vc.confirmation_prompt is None

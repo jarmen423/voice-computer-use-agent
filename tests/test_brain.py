@@ -94,9 +94,12 @@ class TestProcessCommand:
             brain.llm,
             "chat",
             AsyncMock(
-                return_value=LLMResponse(
-                    tool_calls=[ToolCall(tool_name="open_app", parameters={"app_name": "chrome"})]
-                )
+                side_effect=[
+                    LLMResponse(
+                        tool_calls=[ToolCall(tool_name="open_app", parameters={"app_name": "chrome"})]
+                    ),
+                    LLMResponse(content="Chrome is open.", tool_calls=[]),
+                ]
             ),
         ):
             result = await brain.process_command("open chrome")
@@ -119,6 +122,7 @@ class TestProcessCommand:
                         )
                     ]
                 ),
+                LLMResponse(content="Chrome is open.", tool_calls=[]),
                 LLMResponse(
                     tool_calls=[
                         ToolCall(
@@ -128,13 +132,14 @@ class TestProcessCommand:
                         )
                     ]
                 ),
+                LLMResponse(content="Typed hello.", tool_calls=[]),
             ]
         )
         with patch.object(brain.llm, "chat", chat):
             await brain.process_command("open chrome")
             await brain.process_command("type hello in the search bar")
 
-        second_messages = chat.await_args_list[1].kwargs["messages"]
+        second_messages = chat.await_args_list[2].kwargs["messages"]
         assert any(msg.get("role") == "tool" for msg in second_messages)
         assert any(
             msg.get("role") == "assistant" and "Result: opened" in msg.get("content", "")
@@ -150,14 +155,17 @@ class TestProcessCommand:
             brain.llm,
             "chat",
             AsyncMock(
-                return_value=LLMResponse(
-                    tool_calls=[
-                        ToolCall(
-                            tool_name="click_element",
-                            parameters={"description": "submit button"},
-                        )
-                    ]
-                )
+                side_effect=[
+                    LLMResponse(
+                        tool_calls=[
+                            ToolCall(
+                                tool_name="click_element",
+                                parameters={"description": "submit button"},
+                            )
+                        ]
+                    ),
+                    LLMResponse(content="Clicked.", tool_calls=[]),
+                ]
             ),
         ):
             result = await brain.process_command("click the submit button")

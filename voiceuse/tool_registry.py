@@ -186,26 +186,26 @@ async def dispatch_tool_call(
 
     if name == "focus_window":
         app_name = str(params.get("app_name", ""))
-        window = os_controller.find_window(app_name)
+        window = await asyncio.to_thread(os_controller.find_window, app_name)
         if window is None:
             return CommandResult(success=False, message=f"No window found matching '{app_name}'")
-        result = os_controller.focus_window(window)
+        result = await asyncio.to_thread(os_controller.focus_window, window)
         return _normalize_result(result)
 
     if name == "type_text":
         text = str(params.get("text", ""))
         app_name = params.get("app_name")
         if app_name:
-            window = os_controller.find_window(str(app_name))
+            window = await asyncio.to_thread(os_controller.find_window, str(app_name))
             if window is not None:
-                focus_res = os_controller.focus_window(window)
+                focus_res = await asyncio.to_thread(os_controller.focus_window, window)
                 normalized = _normalize_result(focus_res)
                 if not normalized.success:
                     return CommandResult(
                         success=False,
                         message=f"Failed to focus {app_name}: {normalized.message}",
                     )
-        result = os_controller.type_text(text)
+        result = await asyncio.to_thread(os_controller.type_text, text)
         if isinstance(result, CommandResult):
             return result
         target = f"app {app_name}" if app_name else "current focus"
@@ -215,7 +215,7 @@ async def dispatch_tool_call(
         method = getattr(os_controller, name, None)
         if method is None:
             return CommandResult(success=False, message=f"OSController does not implement '{name}'")
-        result = await method(**params) if asyncio.iscoroutinefunction(method) else method(**params)
+        result = await method(**params) if asyncio.iscoroutinefunction(method) else await asyncio.to_thread(method, **params)
         return _normalize_result(result)
 
     if name == "click_element":

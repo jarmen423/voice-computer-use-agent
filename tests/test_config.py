@@ -1,6 +1,5 @@
 """Unit tests for voiceuse.config."""
 
-import os
 import tempfile
 from pathlib import Path
 

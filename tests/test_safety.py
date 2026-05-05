@@ -7,7 +7,7 @@ import pytest
 
 from voiceuse.config import Config, SafetyConfig
 from voiceuse.models import ToolCall
-from voiceuse.safety import SafetyGuard, SafetyCheckResult
+from voiceuse.safety import SafetyGuard
 
 
 @pytest.fixture

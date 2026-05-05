@@ -1,16 +1,13 @@
 """OS Controller for VoiceUse — cross-platform window management, screenshots, and input."""
 
-import asyncio
-import base64
 import difflib
 import logging
 import os
 import shlex
 import subprocess
 import sys
-import tempfile
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional
 
 try:
     import pyautogui
@@ -66,6 +63,9 @@ class OSController:
     def __init__(self, config: Config) -> None:
         self.config = config
         self.platform = self._detect_platform()
+        self._window_cache_ttl_seconds = 0.5
+        self._window_cache_expires_at = 0.0
+        self._window_cache: List[WindowInfo] = []
         _check_platform_deps()
         if pyautogui is None:
             logger.error("pyautogui is not installed; OS control will fail.")
@@ -107,13 +107,9 @@ class OSController:
         try:
             with MSS() as sct:
                 raw = sct.monitors  # list[dict]  ; 0 == all combined
-                # Determine primary monitor by largest overlap with (0,0)
-                primary_idx = 1
                 for i, mon in enumerate(raw[1:], start=1):
                     rect = (mon["left"], mon["top"], mon["width"], mon["height"])
                     is_primary = mon.get("left", 0) == 0 and mon.get("top", 0) == 0
-                    if is_primary:
-                        primary_idx = i
                     monitors.append(
                         MonitorInfo(
                             index=i,
@@ -142,13 +138,27 @@ class OSController:
     # ------------------------------------------------------------------
     def list_windows(self) -> List[WindowInfo]:
         """Enumerate visible windows and return metadata."""
+        now = time.monotonic()
+        if now < self._window_cache_expires_at:
+            return list(self._window_cache)
+
         if self.platform == "windows":
-            return self._list_windows_windows()
+            windows = self._list_windows_windows()
         elif self.platform == "linux":
-            return self._list_windows_linux()
+            windows = self._list_windows_linux()
         elif self.platform == "macos":
-            return self._list_windows_macos()
-        return []
+            windows = self._list_windows_macos()
+        else:
+            windows = []
+
+        self._window_cache = windows
+        self._window_cache_expires_at = now + self._window_cache_ttl_seconds
+        return list(windows)
+
+    def invalidate_window_cache(self) -> None:
+        """Force the next window query to hit the OS instead of cache."""
+        self._window_cache = []
+        self._window_cache_expires_at = 0.0
 
     def _list_windows_windows(self) -> List[WindowInfo]:
         windows: List[WindowInfo] = []
@@ -322,14 +332,13 @@ class OSController:
         end tell
         '''
         try:
-            out = subprocess.check_output(
+            subprocess.check_output(
                 ["osascript", "-e", script], stderr=subprocess.DEVNULL, timeout=15
             )
             # Output is an AppleScript list of records; parsing is fragile.
             # Fall back to Quartz if available for more reliable parsing.
         except Exception as exc:
             logger.debug("AppleScript window enumeration failed: %s", exc)
-            out = b""
 
         # Try Quartz / CGWindowListCopyWindowInfo
         if not windows:
@@ -581,6 +590,7 @@ class OSController:
                 subprocess.Popen(["open", "-a", app_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:
                 return CommandResult(success=False, message=f"Unsupported platform: {self.platform}")
+            self.invalidate_window_cache()
             return CommandResult(success=True, message=f"Launched {app_name}")
         except Exception as exc:
             return CommandResult(success=False, message=f"Failed to open {app_name}: {exc}")
@@ -640,58 +650,73 @@ class OSController:
     # ------------------------------------------------------------------
     # System command execution (moved from Brain for architecture cohesion)
     # ------------------------------------------------------------------
-    # Minimal allow-list of safe command prefixes. Anything else requires
-    # explicit override (not implemented) or is rejected when shell=True.
-    _ALLOWED_COMMANDS: set[str] = {
-        "echo", "cat", "ls", "dir", "pwd", "cd", "mkdir", "touch",
-        "git", "python", "python3", "node", "npm", "yarn", "pnpm",
-        "pip", "pip3", "pytest", "cargo", "go", "rustc",
-        "start", "open", "code", "notepad", "calc",
+    # Only commands with inert, inspect-only behavior belong here. Interpreters,
+    # package managers, shells, git, and build tools are intentionally excluded
+    # because a prefix allow-list cannot validate the code they may execute.
+    _ALLOWED_COMMANDS: dict[str, set[str]] = {
+        "echo": set(),
+        "pwd": set(),
+        "dir": set(),
+        "ls": {"-l", "-la", "-al", "-a"},
+        "whoami": set(),
     }
 
     def execute_system(self, command: str, allow_shell: bool = False) -> CommandResult:
-        """Execute a system command with safety checks.
+        """Execute a narrow set of inspect-only commands.
 
-        By default commands are parsed with ``shlex.split()`` and run with
-        ``shell=False``.  If ``allow_shell`` is True the raw string is passed
-        through (DANGEROUS — only for user-supplied compound commands).
+        VoiceUse is a desktop-control assistant, not a general shell agent.
+        Prefix allow-lists are unsafe for commands like ``python``, ``node``,
+        ``pip``, and ``git`` because the first token says little about the side
+        effects of the arguments.  This method therefore rejects shell mode,
+        compound commands, and any command outside a small inspect-only set.
         """
         if not command or not command.strip():
             return CommandResult(success=False, message="Empty command.")
 
         cmd_str = command.strip()
 
-        # Determine whether to use shell=False or shell=True
-        use_shell = allow_shell
-        if not use_shell:
-            # Try to split safely; if shlex fails, fall back to shell=True
-            # but only if the command looks "simple".
-            try:
-                cmd_parts = shlex.split(cmd_str)
-            except ValueError:
+        if allow_shell:
+            return CommandResult(
+                success=False,
+                message="Shell execution is disabled. Use a dedicated approved tool for shell workflows.",
+            )
+
+        try:
+            cmd_parts = shlex.split(cmd_str)
+        except ValueError:
+            return CommandResult(
+                success=False,
+                message="Could not parse command safely.",
+            )
+        if not cmd_parts:
+            return CommandResult(success=False, message="Empty command after parsing.")
+
+        first_token = os.path.basename(cmd_parts[0]).lower()
+        allowed_flags = self._ALLOWED_COMMANDS.get(first_token)
+        if allowed_flags is None:
+            logger.warning("Command '%s' not in safe inspect-only allow-list; blocking.", first_token)
+            return CommandResult(
+                success=False,
+                message=f"Command '{first_token}' is blocked by the inspect-only command policy.",
+            )
+
+        for arg in cmd_parts[1:]:
+            if any(token in arg for token in (";", "&&", "||", "|", ">", "<", "`", "$(")):
                 return CommandResult(
                     success=False,
-                    message="Could not parse command safely.",
+                    message="Compound shell syntax is blocked.",
                 )
-            if not cmd_parts:
-                return CommandResult(success=False, message="Empty command after parsing.")
-            # Basic prefix check — first token without path
-            first_token = os.path.basename(cmd_parts[0]).lower()
-            if first_token not in self._ALLOWED_COMMANDS:
-                logger.warning("Command '%s' not in allow-list; blocking.", first_token)
+            if arg.startswith("-") and arg not in allowed_flags:
                 return CommandResult(
                     success=False,
-                    message=f"Command '{first_token}' is not in the safety allow-list.",
+                    message=f"Flag '{arg}' is not allowed for command '{first_token}'.",
                 )
-            cmd_parts = cmd_parts
-        else:
-            cmd_parts = cmd_str
 
         logger.warning("Executing system command: %s", cmd_str)
         try:
             proc = subprocess.run(
                 cmd_parts,
-                shell=use_shell,
+                shell=False,
                 capture_output=True,
                 text=True,
                 timeout=30,

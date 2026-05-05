@@ -12,6 +12,7 @@ class AudioConfig(BaseModel):
     chunk_duration_ms: int = 30
     frame_duration_ms: int = 30
     silence_timeout_ms: int = 1500
+    max_recording_seconds: int = 20
     vad_aggressiveness: int = 2  # 0-3
     hotkey: str = "right ctrl"
     wake_word: str = "hey computer"

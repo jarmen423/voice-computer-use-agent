@@ -104,7 +104,7 @@ class VisionBridge:
         max_steps = 5
         steps: List[ComputerUseStep] = []
         try:
-            target = self._capture_target(app_name)
+            target = await asyncio.to_thread(self._capture_target, app_name)
         except Exception as exc:
             return CommandResult(success=False, message=str(exc))
 
@@ -141,7 +141,7 @@ class VisionBridge:
                     data={"steps": [s.__dict__ for s in steps]},
                 )
 
-            execute_result = self._execute_computer_action(action, target)
+            execute_result = await self._execute_computer_action(action, target)
             steps.append(
                 ComputerUseStep(
                     step_number=step_number,
@@ -157,9 +157,9 @@ class VisionBridge:
                     data={"steps": [s.__dict__ for s in steps]},
                 )
 
-            time.sleep(float(action.get("wait_seconds", 0.4)))
+            await asyncio.sleep(float(action.get("wait_seconds", 0.4)))
             try:
-                target = self._capture_target(app_name)
+                target = await asyncio.to_thread(self._capture_target, app_name)
             except Exception as exc:
                 return CommandResult(
                     success=False,
@@ -223,7 +223,7 @@ class VisionBridge:
             return await self._call_anthropic_action(task, target, history)
         return {"success": False, "message": f"Unknown vision provider: {provider}"}
 
-    def _execute_computer_action(
+    async def _execute_computer_action(
         self,
         action: Dict[str, Any],
         target: ComputerUseTarget,
@@ -245,7 +245,7 @@ class VisionBridge:
             global_x = target.origin_x + rel_x
             global_y = target.origin_y + rel_y
             logger.info("Computer-use click at global (%d, %d)", global_x, global_y)
-            self.os.click(global_x, global_y)
+            await asyncio.to_thread(self.os.click, global_x, global_y)
             return CommandResult(
                 success=True,
                 message=f"Clicked at ({global_x}, {global_y}).",
@@ -254,19 +254,19 @@ class VisionBridge:
 
         if action_name == "type":
             text = str(action.get("text", ""))
-            self.os.type_text(text)
+            await asyncio.to_thread(self.os.type_text, text)
             return CommandResult(success=True, message=f"Typed {len(text)} characters.")
 
         if action_name == "key":
             key = str(action.get("key", ""))
             if not key:
                 return CommandResult(success=False, message="Key action missing key.")
-            self.os.press_key(key)
+            await asyncio.to_thread(self.os.press_key, key)
             return CommandResult(success=True, message=f"Pressed {key}.")
 
         if action_name == "wait":
             wait_seconds = float(action.get("wait_seconds", 1.0))
-            time.sleep(max(0.0, min(wait_seconds, 5.0)))
+            await asyncio.sleep(max(0.0, min(wait_seconds, 5.0)))
             return CommandResult(success=True, message=f"Waited {wait_seconds:.1f} seconds.")
 
         return CommandResult(success=False, message=f"Unsupported computer-use action: {action_name}")

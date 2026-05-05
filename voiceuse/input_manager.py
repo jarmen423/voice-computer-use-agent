@@ -38,6 +38,7 @@ except ImportError:  # pragma: no cover
     keyboard = None  # type: ignore[assignment]
 
 from voiceuse.config import Config
+from voiceuse.audio_device import AudioDevice
 
 logger = logging.getLogger("voiceuse.input_manager")
 
@@ -49,10 +50,11 @@ WakeWordCallback = Callable[[bytes], Coroutine[Any, Any, None]]
 class InputManager:
     """Manages audio input: hotkeys, wake word, VAD, and streaming STT to Groq."""
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, audio_device: Optional[AudioDevice] = None) -> None:
         self.config = config
         self.audio_config = config.audio
         self.stt_config = config.stt
+        self.audio_device = audio_device or AudioDevice()
 
         # State
         self._is_recording: bool = False
@@ -64,11 +66,10 @@ class InputManager:
         self._on_wake_word: Optional[WakeWordCallback] = None
 
         # PyAudio
-        self._pa: Optional[Any] = None
         self._stream: Optional[Any] = None
         self._sample_rate: int = self.audio_config.sample_rate
         self._channels: int = 1
-        self._format: int = pyaudio.paInt16 if pyaudio else 0
+        self._format: int = self.audio_device.pa_int16
         self._chunk_size: int = int(
             self._sample_rate * self.audio_config.chunk_duration_ms / 1000
         )
@@ -114,12 +115,12 @@ class InputManager:
         """Start hotkey and (optionally) wake-word listeners."""
         self._loop = asyncio.get_running_loop()
 
-        if pyaudio is None:
+        if not self.audio_device.is_available:
             logger.error("pyaudio is not installed; audio input is disabled.")
             print("[InputManager] ERROR: pyaudio not installed — audio input disabled.")
             return
 
-        self._pa = pyaudio.PyAudio()
+        self.audio_device.ensure_started()
 
         # Start hotkey listener in a background thread
         self._stop_hotkey = False
@@ -164,14 +165,6 @@ class InputManager:
             except Exception as exc:  # pragma: no cover
                 logger.debug("Error deleting porcupine: %s", exc)
             self._porcupine = None
-
-        # Terminate PyAudio
-        if self._pa is not None:
-            try:
-                self._pa.terminate()
-            except Exception as exc:  # pragma: no cover
-                logger.debug("Error terminating pyaudio: %s", exc)
-            self._pa = None
 
         # Join threads (with timeout so we don't hang)
         if self._hotkey_thread is not None and self._hotkey_thread.is_alive():
@@ -295,21 +288,19 @@ class InputManager:
 
         porcupine_sample_rate = self._porcupine.sample_rate
         frame_length = self._porcupine.frame_length
-        pa = pyaudio.PyAudio()
         stream: Optional[Any] = None
 
         try:
-            stream = pa.open(
+            stream = self.audio_device.open_input_stream(
+                owner="wake-word",
                 rate=porcupine_sample_rate,
                 channels=1,
-                format=pyaudio.paInt16,
-                input=True,
+                format=self.audio_device.pa_int16,
                 frames_per_buffer=frame_length,
             )
             print(f"[InputManager] Porcupine listening (sample_rate={porcupine_sample_rate}).")
         except Exception as exc:
             logger.error("Failed to open microphone for wake-word: %s", exc)
-            pa.terminate()
             return
 
         try:
@@ -326,19 +317,11 @@ class InputManager:
             logger.error("Wake-word worker error: %s", exc)
         finally:
             if stream is not None:
-                try:
-                    stream.stop_stream()
-                    stream.close()
-                except Exception:
-                    pass
-            try:
-                pa.terminate()
-            except Exception:
-                pass
+                self.audio_device.close_stream(stream)
 
     async def _trigger_wake_word_recording(self) -> None:
         """Async callback: record after wake word until VAD silence."""
-        if self._pa is None or webrtcvad is None:
+        if not self.audio_device.is_available or webrtcvad is None:
             logger.warning("Cannot record after wake word: pyaudio or webrtcvad missing.")
             return
 
@@ -349,14 +332,16 @@ class InputManager:
         frame_size = int(self._sample_rate * frame_duration_ms / 1000)
         silence_timeout_ms = self.audio_config.silence_timeout_ms
         max_silence_frames = max(1, int(silence_timeout_ms / frame_duration_ms))
+        max_recording_frames = self._max_recording_frames(frame_duration_ms)
         silence_frames = 0
+        total_frames = 0
 
         try:
-            stream = self._pa.open(
+            stream = self.audio_device.open_input_stream(
+                owner="wake-word-recording",
                 rate=self._sample_rate,
                 channels=self._channels,
                 format=self._format,
-                input=True,
                 frames_per_buffer=frame_size,
             )
             print("[InputManager] Recording after wake word (VAD silence detection)...")
@@ -366,6 +351,7 @@ class InputManager:
                 if not pcm:
                     continue
                 audio_buffer.append(pcm)
+                total_frames += 1
                 is_speech = vad.is_speech(pcm, self._sample_rate)
                 if is_speech:
                     silence_frames = 0
@@ -373,15 +359,14 @@ class InputManager:
                     silence_frames += 1
                     if silence_frames >= max_silence_frames:
                         break
+                if total_frames >= max_recording_frames:
+                    logger.warning("Wake-word recording reached max_recording_seconds; stopping capture.")
+                    break
         except Exception as exc:
             logger.error("Wake-word recording error: %s", exc)
         finally:
             if stream is not None:
-                try:
-                    stream.stop_stream()
-                    stream.close()
-                except Exception:
-                    pass
+                self.audio_device.close_stream(stream)
 
         audio_bytes = b"".join(audio_buffer)
         if audio_bytes:
@@ -393,15 +378,15 @@ class InputManager:
 
     def _open_stream(self) -> None:
         """Open the PyAudio input stream for hotkey recording."""
-        if self._pa is None:
+        if not self.audio_device.is_available:
             return
         self._close_stream()
         try:
-            self._stream = self._pa.open(
+            self._stream = self.audio_device.open_input_stream(
+                owner="hotkey-recording",
                 rate=self._sample_rate,
                 channels=self._channels,
                 format=self._format,
-                input=True,
                 frames_per_buffer=self._chunk_size,
                 stream_callback=self._audio_callback,
             )
@@ -420,11 +405,7 @@ class InputManager:
         """Close the active PyAudio stream safely."""
         if self._stream is not None:
             try:
-                self._stream.stop_stream()
-            except Exception:
-                pass
-            try:
-                self._stream.close()
+                self.audio_device.close_stream(self._stream)
             except Exception:
                 pass
             self._stream = None
@@ -473,7 +454,7 @@ class InputManager:
 
     async def capture_single_utterance(self) -> str:
         """Record a single utterance after a trigger (e.g., confirmation response) and transcribe it."""
-        if self._pa is None or webrtcvad is None:
+        if not self.audio_device.is_available or webrtcvad is None:
             logger.warning("Cannot capture utterance: pyaudio or webrtcvad missing.")
             return ""
 
@@ -484,14 +465,16 @@ class InputManager:
         frame_size = int(self._sample_rate * frame_duration_ms / 1000)
         silence_timeout_ms = self.audio_config.silence_timeout_ms
         max_silence_frames = max(1, int(silence_timeout_ms / frame_duration_ms))
+        max_recording_frames = self._max_recording_frames(frame_duration_ms)
         silence_frames = 0
+        total_frames = 0
 
         try:
-            stream = self._pa.open(
+            stream = self.audio_device.open_input_stream(
+                owner="confirmation-capture",
                 rate=self._sample_rate,
                 channels=self._channels,
                 format=self._format,
-                input=True,
                 frames_per_buffer=frame_size,
             )
             print("[InputManager] Listening for confirmation response...")
@@ -501,6 +484,7 @@ class InputManager:
                 if not pcm:
                     continue
                 audio_buffer.append(pcm)
+                total_frames += 1
                 is_speech = vad.is_speech(pcm, self._sample_rate)
                 if is_speech:
                     silence_frames = 0
@@ -508,19 +492,27 @@ class InputManager:
                     silence_frames += 1
                     if silence_frames >= max_silence_frames:
                         break
+                if total_frames >= max_recording_frames:
+                    logger.warning("Confirmation capture reached max_recording_seconds; stopping capture.")
+                    break
         except Exception as exc:
             logger.error("capture_single_utterance error: %s", exc)
             return ""
         finally:
             if stream is not None:
-                try:
-                    stream.stop_stream()
-                    stream.close()
-                except Exception:
-                    pass
+                self.audio_device.close_stream(stream)
 
         audio_bytes = self._wrap_wav(b"".join(audio_buffer))
         return await self.transcribe_audio(audio_bytes)
+
+    def _max_recording_frames(self, frame_duration_ms: int) -> int:
+        """Return the maximum VAD frames allowed for one utterance.
+
+        This prevents noisy rooms or broken VAD behavior from recording forever
+        and growing ``audio_buffer`` without bound.
+        """
+        max_seconds = max(1, int(self.audio_config.max_recording_seconds))
+        return max(1, int((max_seconds * 1000) / frame_duration_ms))
 
     # ------------------------------------------------------------------
     # STT transcription
