@@ -24,6 +24,7 @@ from voiceuse.audio_device import AudioDevice
 from voiceuse.config import Config
 from voiceuse.health import check_installation, print_report
 from voiceuse.input_manager import InputManager
+from voiceuse.observability import LatencyTimer
 from voiceuse.os_controller import OSController
 from voiceuse.plugins import get_plugin
 from voiceuse.safety import SafetyGuard
@@ -298,14 +299,20 @@ class Application:
             logger.error("Subsystems not initialised; skipping pipeline.")
             return
 
+        pipeline_timer = LatencyTimer("pipeline.total", detail=f"audio_bytes={len(audio_bytes)}")
         try:
+            stt_timer = LatencyTimer("pipeline.stt")
             text = await self.input_manager.transcribe_audio(audio_bytes)
+            stt_timer.finish(success=True, detail=f"chars={len(text)}")
         except Exception as exc:
+            stt_timer.finish(success=False, detail=type(exc).__name__)
+            pipeline_timer.finish(success=False, detail="stt_failed")
             logger.error("Transcription step failed: %s", exc)
             await self.speak("Sorry, I didn't catch that.", interrupt=True)
             return
 
         if not text:
+            pipeline_timer.finish(success=True, detail="empty_transcription")
             logger.info("Empty transcription; nothing to do.")
             await self.speak("I didn't hear anything.", interrupt=True)
             return
@@ -314,17 +321,24 @@ class Application:
 
         try:
             self._set_state(ApplicationState.THINKING)
+            brain_timer = LatencyTimer("pipeline.brain", detail=text[:80])
             result = await self.brain.process_command(text)
+            brain_timer.finish(success=result.success, detail=result.message[:120])
         except LLMError as exc:
+            brain_timer.finish(success=False, detail=type(exc).__name__)
+            pipeline_timer.finish(success=False, detail="llm_failed")
             logger.error("Brain LLM error: %s", exc)
             await self.speak("I'm having trouble reaching my language model right now.", interrupt=True)
             return
         except Exception:
+            brain_timer.finish(success=False, detail="unexpected")
+            pipeline_timer.finish(success=False, detail="brain_failed")
             logger.exception("Brain processing error")
             await self.speak("Something went wrong while trying to help.", interrupt=True)
             return
 
         await self.speak(result.message, interrupt=True)
+        pipeline_timer.finish(success=result.success, detail=result.message[:120])
 
     def request_shutdown(self, sig: int) -> None:
         """Signal-safe shutdown entrypoint used by process signal handlers."""

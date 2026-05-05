@@ -12,6 +12,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 
 from voiceuse.models import CommandResult, ToolCall
+from voiceuse.observability import LatencyTimer
 from voiceuse.os_controller import OSController
 from voiceuse.vision_bridge import VisionBridge
 
@@ -179,8 +180,20 @@ async def dispatch_tool_call(
 
     Returns:
         A normalized :class:`CommandResult` so all pipelines can report and test
-        execution consistently.
+    execution consistently.
     """
+    timer = LatencyTimer("tool.dispatch", detail=tool_call.tool_name)
+    result = await _dispatch_tool_call_inner(tool_call, os_controller, vision_bridge)
+    timer.finish(success=result.success, detail=result.message[:120])
+    return result
+
+
+async def _dispatch_tool_call_inner(
+    tool_call: ToolCall,
+    os_controller: OSController,
+    vision_bridge: VisionBridge,
+) -> CommandResult:
+    """Execute one tool call after the public dispatcher starts timing."""
     name = tool_call.tool_name
     params = tool_call.parameters
 
