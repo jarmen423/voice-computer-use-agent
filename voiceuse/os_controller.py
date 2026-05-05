@@ -507,8 +507,22 @@ class OSController:
 
         try:
             if self.platform == "windows":
-                # Use 'start' via cmd.exe so we can launch by friendly name
-                subprocess.Popen(f'start "" {shlex.quote(app_name)}', shell=True)
+                # Use os.startfile which is the native Windows API for opening
+                # files/apps via shell associations (Start Menu, shortcuts, etc.).
+                # We avoid subprocess + shlex because cmd.exe quoting is fragile
+                # and a name like "Codex" in PATH resolves to the CLI executable
+                # instead of the desktop app.
+                try:
+                    os.startfile(app_name)
+                except OSError:
+                    # If the exact name fails (e.g. no file association),
+                    # try the "start" shell command as fallback.
+                    subprocess.Popen(
+                        ["cmd", "/c", "start", "", app_name],
+                        shell=False,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
             elif self.platform == "linux":
                 # Try the binary name first; if that fails we could use gtk-launch
                 binary = app_name.lower().replace(" ", "-")
@@ -669,7 +683,7 @@ class OSController:
     # ------------------------------------------------------------------
     # Browser
     # ------------------------------------------------------------------
-    def browser_search(self, browser: Optional[str], query: str) -> CommandResult:
+    def browser_search(self, query: str, browser: Optional[str] = None) -> CommandResult:
         """Open *browser* (or preferred_browser from config) and navigate to *query*."""
         browser_name = browser or self.config.app.preferred_browser
         # Launch / focus browser
@@ -726,7 +740,15 @@ class OSController:
         for _ in range(count - 1):
             # Open additional instances
             if self.platform == "windows":
-                subprocess.Popen(f'start "" {shlex.quote(app_name)}', shell=True)
+                try:
+                    os.startfile(app_name)
+                except OSError:
+                    subprocess.Popen(
+                        ["cmd", "/c", "start", "", app_name],
+                        shell=False,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
             elif self.platform == "linux":
                 binary = app_name.lower().replace(" ", "-")
                 subprocess.Popen([binary], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
