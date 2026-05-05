@@ -11,6 +11,7 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from voiceuse.action_audit import ActionAuditLog
 from voiceuse.config import Config, LLMConfig
 from voiceuse.models import CommandResult, ToolCall
 
@@ -267,6 +268,7 @@ class Brain:
         self.tts_manager = tts_manager
         self.get_confirmation_text = get_confirmation_text
         self.llm = _LLMClient(config.llm)
+        self.audit_log = ActionAuditLog(config)
         self._conversation_history: List[Dict[str, Any]] = []
         self._max_history_messages = 30
         self._max_agent_steps = 3
@@ -369,10 +371,29 @@ class Brain:
         # 2. Safety screening + optional confirmation
         confirmed_calls: List[ToolCall] = []
         blocked_calls: List[Tuple[ToolCall, str]] = []
+        denied_calls: List[Tuple[ToolCall, str]] = []
 
         for tc in plan.tool_calls:
             safety_result: SafetyCheckResult = self.safety.check_command(tc, raw_text)
+            if not safety_result.is_allowed:
+                await self.audit_log.record(
+                    source="brain",
+                    tool_call=tc,
+                    decision="denied",
+                    raw_text=raw_text,
+                    reason=safety_result.denial_reason,
+                )
+                denied_calls.append(
+                    (tc, safety_result.denial_reason or "Safety policy denied this action.")
+                )
+                continue
             if safety_result.is_safe:
+                await self.audit_log.record(
+                    source="brain",
+                    tool_call=tc,
+                    decision="allowed",
+                    raw_text=raw_text,
+                )
                 confirmed_calls.append(tc)
             else:
                 blocked_calls.append(
@@ -388,11 +409,32 @@ class Brain:
                     confirmation_prompt=reason,
                 )
                 if confirmed:
+                    await self.audit_log.record(
+                        source="brain",
+                        tool_call=tc,
+                        decision="confirmed",
+                        raw_text=raw_text,
+                        reason=reason,
+                    )
                     confirmed_calls.append(tc)
                 else:
+                    await self.audit_log.record(
+                        source="brain",
+                        tool_call=tc,
+                        decision="denied",
+                        raw_text=raw_text,
+                        reason="User declined confirmation.",
+                    )
                     logger.info("User declined confirmation for %s", tc.tool_name)
 
         # If after confirmation we still have no confirmed calls and there were blocked ones
+        if not confirmed_calls and denied_calls and not blocked_calls:
+            denied_summary = " ".join(reason for _, reason in denied_calls)
+            return CommandResult(
+                success=False,
+                message=denied_summary or "Action denied by safety policy.",
+            )
+
         if not confirmed_calls and blocked_calls:
             return CommandResult(
                 success=False,
@@ -403,10 +445,25 @@ class Brain:
         results: List[str] = []
         for tc in confirmed_calls:
             try:
-                result = await self._dispatch_tool_call(tc)
-                results.append(result)
+                dispatch_result = await self._dispatch_tool_call(tc)
+                await self.audit_log.record(
+                    source="brain",
+                    tool_call=tc,
+                    decision="executed",
+                    result=dispatch_result,
+                    raw_text=raw_text,
+                )
+                results.append(dispatch_result.message)
             except Exception as exc:
                 logger.exception("Tool dispatch failed for %s", tc.tool_name)
+                await self.audit_log.record(
+                    source="brain",
+                    tool_call=tc,
+                    decision="failed",
+                    result=CommandResult(success=False, message=str(exc)),
+                    raw_text=raw_text,
+                    reason=str(exc),
+                )
                 results.append(f"Failed to run {tc.tool_name}: {exc}")
 
         summary = " ".join(results)
@@ -561,7 +618,7 @@ class Brain:
     # Dispatch
     # ------------------------------------------------------------------
 
-    async def _dispatch_tool_call(self, tc: ToolCall) -> str:
+    async def _dispatch_tool_call(self, tc: ToolCall) -> CommandResult:
         """Route a single ToolCall through the shared tool registry."""
         logger.debug("Dispatching %s with params %s", tc.tool_name, tc.parameters)
         result = await dispatch_tool_call(
@@ -571,4 +628,4 @@ class Brain:
         )
         if not result.success:
             raise RuntimeError(result.message)
-        return result.message
+        return result

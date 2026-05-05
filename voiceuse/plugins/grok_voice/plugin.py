@@ -12,6 +12,7 @@ import json
 import logging
 from typing import Any, Awaitable, Callable, Dict, Optional
 
+from voiceuse.action_audit import ActionAuditLog
 from voiceuse.config import Config
 from voiceuse.os_controller import OSController
 from voiceuse.vision_bridge import VisionBridge
@@ -19,7 +20,7 @@ from voiceuse.safety import SafetyGuard
 from voiceuse.plugins.base import PluginBase
 from voiceuse.plugins.grok_voice.client import XAIRealtimeClient
 from voiceuse.plugins.grok_voice.audio_streamer import GrokAudioStreamer
-from voiceuse.models import ToolCall
+from voiceuse.models import CommandResult, ToolCall
 from voiceuse.tool_registry import TOOL_SCHEMAS, dispatch_tool_call
 from voiceuse.audio_device import AudioDevice
 
@@ -43,6 +44,7 @@ class GrokVoicePlugin(PluginBase):
         self.tts_manager: Optional[Any] = None
         self.get_confirmation_text: Optional[Callable[[], Awaitable[str]]] = None
         self.audio_device: Optional[AudioDevice] = None
+        self.audit_log: Optional[ActionAuditLog] = None
 
         self._client: Optional[XAIRealtimeClient] = None
         self._streamer: Optional[GrokAudioStreamer] = None
@@ -74,6 +76,7 @@ class GrokVoicePlugin(PluginBase):
         self.tts_manager = tts_manager
         self.get_confirmation_text = get_confirmation_text
         self.audio_device = audio_device
+        self.audit_log = ActionAuditLog(config)
 
         gcfg = config.plugins.grok_voice
         if not gcfg.api_key:
@@ -235,6 +238,16 @@ class GrokVoicePlugin(PluginBase):
             from voiceuse.models import ToolCall
             tc = ToolCall(tool_name=name, parameters=params)
             safety_result = self.safety_guard.check_command(tc)
+            if not safety_result.is_allowed:
+                if self.audit_log is not None:
+                    await self.audit_log.record(
+                        source="grok_voice",
+                        tool_call=tc,
+                        decision="denied",
+                        reason=safety_result.denial_reason,
+                    )
+                logger.warning("Safety policy denied function call %s: %s", name, safety_result.denial_reason)
+                return
             if not safety_result.is_safe:
                 if self.tts_manager is None or self.get_confirmation_text is None:
                     logger.warning("Cannot confirm %s because confirmation services are unavailable.", name)
@@ -245,15 +258,50 @@ class GrokVoicePlugin(PluginBase):
                     confirmation_prompt=safety_result.confirmation_prompt,
                 )
                 if not confirmed:
+                    if self.audit_log is not None:
+                        await self.audit_log.record(
+                            source="grok_voice",
+                            tool_call=tc,
+                            decision="denied",
+                            reason="User declined confirmation.",
+                        )
                     logger.info("User declined function call %s", name)
                     return
+                if self.audit_log is not None:
+                    await self.audit_log.record(
+                        source="grok_voice",
+                        tool_call=tc,
+                        decision="confirmed",
+                        reason=safety_result.confirmation_prompt,
+                    )
+            elif self.audit_log is not None:
+                await self.audit_log.record(
+                    source="grok_voice",
+                    tool_call=tc,
+                    decision="allowed",
+                )
 
         result_message = ""
         try:
             result_message = await self._execute_tool(name, params)
+            if self.audit_log is not None:
+                await self.audit_log.record(
+                    source="grok_voice",
+                    tool_call=ToolCall(tool_name=name, parameters=params),
+                    decision="executed",
+                    result=CommandResult(success=True, message=result_message),
+                )
         except Exception as exc:
             logger.exception("Tool execution failed for %s", name)
             result_message = f"Error executing {name}: {exc}"
+            if self.audit_log is not None:
+                await self.audit_log.record(
+                    source="grok_voice",
+                    tool_call=ToolCall(tool_name=name, parameters=params),
+                    decision="failed",
+                    result=CommandResult(success=False, message=str(exc)),
+                    reason=str(exc),
+                )
 
         # Send function output back to xAI so the model can continue
         if self._client is not None:

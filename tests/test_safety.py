@@ -53,6 +53,23 @@ class TestCheckCommand:
         result = default_guard.check_command(tc)
         assert result.is_safe is False
 
+    def test_disallowed_tool_is_denied_without_confirmation(self) -> None:
+        """Tools outside safety.allowed_tools should not reach execution."""
+        config = Config(
+            safety=SafetyConfig(
+                allowed_tools=["open_app"],
+                confirm_destructive=True,
+            )
+        )
+        guard = SafetyGuard(config)
+        tc = ToolCall(tool_name="type_text", parameters={"text": "hello"})
+
+        result = guard.check_command(tc)
+
+        assert result.is_allowed is False
+        assert result.requires_confirmation is False
+        assert "not allowed" in result.denial_reason
+
 
 class TestConfirm:
     """Tests for SafetyGuard.confirm async flow."""

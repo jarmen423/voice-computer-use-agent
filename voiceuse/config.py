@@ -74,11 +74,23 @@ class ComputerUseConfig(BaseModel):
 
 class SafetyConfig(BaseModel):
     confirm_destructive: bool = True
+    allowed_tools: list[str] = Field(default_factory=lambda: [
+        "open_app",
+        "focus_window",
+        "split_view_apps",
+        "browser_search",
+        "click_element",
+        "type_text",
+        "find_chat",
+        "execute_system",
+    ])
     destructive_keywords: list[str] = Field(default_factory=lambda: [
         "close", "quit", "delete", "remove", "kill", "terminate", "shutdown", "reboot",
         "format", "rm -rf", "type password", "enter password", "input password"
     ])
     confirmation_timeout_seconds: int = 10
+    audit_enabled: bool = True
+    audit_log_path: str = "logs/voiceuse_action_audit.jsonl"
 
 
 class GrokVoiceConfig(BaseModel):
@@ -145,5 +157,20 @@ class Config(BaseModel):
         return cls()
 
     def to_yaml(self, path: str = "config.yaml") -> None:
+        """Write non-secret configuration to YAML.
+
+        API keys may be resolved from environment variables or secure storage
+        during runtime. Persisting the resolved model directly would leak those
+        secrets into ``config.yaml``, so this export deliberately omits every
+        API-key field and lets validators resolve them again on load.
+        """
+        data = self.model_dump(
+            exclude={
+                "stt": {"api_key"},
+                "llm": {"api_key", "fallback_api_key", "cerebras_api_key"},
+                "computer_use": {"api_key"},
+                "plugins": {"grok_voice": {"api_key"}},
+            }
+        )
         with open(path, "w", encoding="utf-8") as f:
-            yaml.dump(self.model_dump(), f, default_flow_style=False, sort_keys=False)
+            yaml.dump(data, f, default_flow_style=False, sort_keys=False)

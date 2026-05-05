@@ -22,6 +22,8 @@ class SafetyCheckResult:
     is_safe: bool
     requires_confirmation: bool
     confirmation_prompt: str
+    is_allowed: bool = True
+    denial_reason: str = ""
 
 
 class SafetyGuard:
@@ -43,6 +45,7 @@ class SafetyGuard:
         self._keywords = {
             kw.lower() for kw in config.safety.destructive_keywords
         }
+        self._allowed_tools = {tool.lower() for tool in config.safety.allowed_tools}
         self._timeout_seconds = config.safety.confirmation_timeout_seconds
 
     # ------------------------------------------------------------------
@@ -64,20 +67,32 @@ class SafetyGuard:
             A :class:`SafetyCheckResult` indicating whether the call is safe
             and, if not, the confirmation prompt to present to the user.
         """
-        # 1. "execute_system" is always treated as destructive regardless of
+        # 1. Enforce the explicit permission list before keyword heuristics.
+        if tool_call.tool_name.lower() not in self._allowed_tools:
+            reason = f"Tool '{tool_call.tool_name}' is not allowed by safety.allowed_tools."
+            logger.warning(reason)
+            return SafetyCheckResult(
+                is_safe=False,
+                requires_confirmation=False,
+                confirmation_prompt="",
+                is_allowed=False,
+                denial_reason=reason,
+            )
+
+        # 2. "execute_system" is always treated as destructive regardless of
         #    parameter content because it runs arbitrary shell commands.
         if tool_call.tool_name == "execute_system":
             return self._destructive_result(tool_call)
 
-        # 2. Check every parameter value (stringified) against the keyword list.
+        # 3. Check every parameter value (stringified) against the keyword list.
         if self._parameters_contain_keyword(tool_call.parameters):
             return self._destructive_result(tool_call)
 
-        # 3. Also check the raw user text if provided.
+        # 4. Also check the raw user text if provided.
         if raw_text and self._text_contains_keyword(raw_text):
             return self._destructive_result(tool_call)
 
-        # 4. Safe path.
+        # 5. Safe path.
         return SafetyCheckResult(
             is_safe=True,
             requires_confirmation=False,

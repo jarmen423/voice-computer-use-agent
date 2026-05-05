@@ -47,7 +47,12 @@ def mock_tts_manager() -> MagicMock:
 def mock_safety_guard() -> MagicMock:
     """Return a mock SafetyGuard that allows everything."""
     guard = MagicMock(spec=SafetyGuard)
-    guard.check_command.return_value = MagicMock(is_safe=True, requires_confirmation=False)
+    guard.check_command.return_value = MagicMock(
+        is_safe=True,
+        requires_confirmation=False,
+        is_allowed=True,
+        denial_reason="",
+    )
     guard.confirm = AsyncMock(return_value=True)
     return guard
 
@@ -61,6 +66,7 @@ def brain(
 ) -> Brain:
     """Return a Brain wired with mock subsystems."""
     config = Config()
+    config.safety.audit_enabled = False
     return Brain(
         config=config,
         safety=mock_safety_guard,
