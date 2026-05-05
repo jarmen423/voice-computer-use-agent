@@ -7,14 +7,21 @@ from unittest.mock import AsyncMock
 import pytest
 
 from voiceuse.config import Config
-from voiceuse.main import Application, ApplicationState
+from voiceuse.main import Application, ApplicationState, ApplicationStateMachine
 from voiceuse.models import CommandResult
+
+
+def _mark_idle(app: Application) -> None:
+    """Move a unit-test application through the normal startup states."""
+    app._set_state(ApplicationState.INITIALISING)
+    app._set_state(ApplicationState.IDLE)
 
 
 @pytest.mark.asyncio
 async def test_pipeline_runs_stt_brain_and_interrupting_tts() -> None:
     """A normal voice turn should flow STT -> Brain -> interrupting TTS."""
     app = Application(Config())
+    _mark_idle(app)
     app.input_manager = AsyncMock()
     app.input_manager.transcribe_audio = AsyncMock(return_value="open chrome")
     app.brain = AsyncMock()
@@ -36,6 +43,7 @@ async def test_pipeline_runs_stt_brain_and_interrupting_tts() -> None:
 async def test_pipeline_handles_empty_transcription_without_brain() -> None:
     """Empty STT output should short-circuit before LLM/tool execution."""
     app = Application(Config())
+    _mark_idle(app)
     app.input_manager = AsyncMock()
     app.input_manager.transcribe_audio = AsyncMock(return_value="")
     app.brain = AsyncMock()
@@ -53,6 +61,7 @@ async def test_pipeline_handles_empty_transcription_without_brain() -> None:
 async def test_hotkey_press_cancels_current_tts() -> None:
     """Starting a new voice turn should stop stale assistant speech."""
     app = Application(Config())
+    _mark_idle(app)
     app.tts_manager = AsyncMock()
     app.tts_manager.cancel = AsyncMock(return_value=None)
 
@@ -60,3 +69,15 @@ async def test_hotkey_press_cancels_current_tts() -> None:
 
     app.tts_manager.cancel.assert_awaited_once()
     assert app.state == ApplicationState.LISTENING
+
+
+def test_application_state_machine_blocks_invalid_transition() -> None:
+    """Stopped applications should not move back into runtime states."""
+    machine = ApplicationStateMachine()
+    machine.transition(ApplicationState.INITIALISING)
+    machine.transition(ApplicationState.IDLE)
+    machine.transition(ApplicationState.SHUTTING_DOWN)
+    machine.transition(ApplicationState.STOPPED)
+
+    with pytest.raises(RuntimeError):
+        machine.transition(ApplicationState.LISTENING)

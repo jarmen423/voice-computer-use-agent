@@ -51,6 +51,83 @@ class ApplicationState(str, Enum):
     STOPPED = "stopped"
 
 
+class ApplicationStateMachine:
+    """Validate high-level application lifecycle transitions.
+
+    The voice agent has several asynchronous entrypoints: hotkeys, wake words,
+    confirmation capture, TTS playback, and shutdown signals. Keeping transition
+    rules centralized prevents impossible combinations, such as returning from
+    ``stopped`` to ``listening`` or jumping into ``acting`` before the app has
+    initialized.
+    """
+
+    _ALLOWED: dict[ApplicationState, set[ApplicationState]] = {
+        ApplicationState.CREATED: {
+            ApplicationState.INITIALISING,
+            ApplicationState.SHUTTING_DOWN,
+        },
+        ApplicationState.INITIALISING: {
+            ApplicationState.IDLE,
+            ApplicationState.SHUTTING_DOWN,
+        },
+        ApplicationState.IDLE: {
+            ApplicationState.LISTENING,
+            ApplicationState.THINKING,
+            ApplicationState.SPEAKING,
+            ApplicationState.CONFIRMING,
+            ApplicationState.SHUTTING_DOWN,
+        },
+        ApplicationState.LISTENING: {
+            ApplicationState.THINKING,
+            ApplicationState.SPEAKING,
+            ApplicationState.CONFIRMING,
+            ApplicationState.IDLE,
+            ApplicationState.SHUTTING_DOWN,
+        },
+        ApplicationState.THINKING: {
+            ApplicationState.ACTING,
+            ApplicationState.SPEAKING,
+            ApplicationState.CONFIRMING,
+            ApplicationState.IDLE,
+            ApplicationState.SHUTTING_DOWN,
+        },
+        ApplicationState.ACTING: {
+            ApplicationState.THINKING,
+            ApplicationState.SPEAKING,
+            ApplicationState.IDLE,
+            ApplicationState.SHUTTING_DOWN,
+        },
+        ApplicationState.SPEAKING: {
+            ApplicationState.IDLE,
+            ApplicationState.LISTENING,
+            ApplicationState.SHUTTING_DOWN,
+        },
+        ApplicationState.CONFIRMING: {
+            ApplicationState.THINKING,
+            ApplicationState.IDLE,
+            ApplicationState.SPEAKING,
+            ApplicationState.SHUTTING_DOWN,
+        },
+        ApplicationState.SHUTTING_DOWN: {
+            ApplicationState.STOPPED,
+        },
+        ApplicationState.STOPPED: set(),
+    }
+
+    def __init__(self, initial: ApplicationState = ApplicationState.CREATED) -> None:
+        self.state = initial
+
+    def transition(self, target: ApplicationState) -> ApplicationState:
+        """Move to ``target`` if the transition is allowed."""
+        if target == self.state:
+            return self.state
+        allowed = self._ALLOWED[self.state]
+        if target not in allowed:
+            raise RuntimeError(f"Invalid application state transition: {self.state.value} -> {target.value}")
+        self.state = target
+        return self.state
+
+
 def _ensure_config(path: Path = DEFAULT_CONFIG_PATH) -> Config:
     """Load config from YAML and create a default config when missing."""
     if not path.exists():
@@ -118,7 +195,8 @@ class Application:
         """Create an application shell around a loaded configuration."""
         self.config = config
         self.shutdown_event = asyncio.Event()
-        self.state = ApplicationState.CREATED
+        self.state_machine = ApplicationStateMachine()
+        self.state = self.state_machine.state
 
         self.input_manager: Optional[InputManager] = None
         self.tts_manager: Optional[TTSManager] = None
@@ -319,9 +397,9 @@ class Application:
 
         logger.info("Transcribed: %r", text)
 
+        brain_timer = LatencyTimer("pipeline.brain", detail=text[:80])
         try:
             self._set_state(ApplicationState.THINKING)
-            brain_timer = LatencyTimer("pipeline.brain", detail=text[:80])
             result = await self.brain.process_command(text)
             brain_timer.finish(success=result.success, detail=result.message[:120])
         except LLMError as exc:
@@ -350,7 +428,7 @@ class Application:
         if self.state == state:
             return
         logger.debug("Application state: %s -> %s", self.state.value, state.value)
-        self.state = state
+        self.state = self.state_machine.transition(state)
 
     def _start_pipeline_task(self, audio_bytes: bytes) -> None:
         """Start and track one voice command pipeline task."""
