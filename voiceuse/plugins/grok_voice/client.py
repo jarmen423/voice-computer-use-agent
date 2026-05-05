@@ -126,6 +126,24 @@ class XAIRealtimeClient:
         """Request a new response from the model."""
         await self._send_event("response.create", {})
 
+    async def send_function_call_output(self, call_id: str, output: str) -> None:
+        """Send local tool output back to the realtime model.
+
+        Plugins should not construct low-level WebSocket events directly. This
+        method owns the xAI event shape so plugin code can stay focused on
+        safety, dispatch, and application lifecycle.
+        """
+        await self._send_event(
+            "conversation.item.create",
+            {
+                "item": {
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": output,
+                }
+            },
+        )
+
     # ------------------------------------------------------------------
     # Receive loop
     # ------------------------------------------------------------------

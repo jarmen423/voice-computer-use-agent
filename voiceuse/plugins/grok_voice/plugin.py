@@ -305,16 +305,7 @@ class GrokVoicePlugin(PluginBase):
 
         # Send function output back to xAI so the model can continue
         if self._client is not None:
-            await self._client._send_event(
-                "conversation.item.create",
-                {
-                    "item": {
-                        "type": "function_call_output",
-                        "call_id": call_id,
-                        "output": result_message,
-                    }
-                },
-            )
+            await self._client.send_function_call_output(call_id, result_message)
             await self._client.create_response()
 
     async def _execute_tool(self, name: str, params: Dict[str, Any]) -> str:
