@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "voiceuse-computer-control": {
+      "command": "python",
+      "args": [
+        "./plugins/voiceuse-computer-control/scripts/mcp_server.py"
+      ],
+      "env": {
+        "VOICEUSE_CONFIG": "config.yaml"
+      }
+    }
+  }
+}

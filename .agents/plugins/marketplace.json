@@ -1,0 +1,20 @@
+{
+  "name": "voiceuse-local",
+  "interface": {
+    "displayName": "VoiceUse Local"
+  },
+  "plugins": [
+    {
+      "name": "voiceuse-computer-control",
+      "source": {
+        "source": "local",
+        "path": "./plugins/voiceuse-computer-control"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

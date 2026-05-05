@@ -1,0 +1,41 @@
+{
+  "name": "voiceuse-computer-control",
+  "version": "0.1.0",
+  "description": "Codex plugin that exposes VoiceUse desktop observation and control tools through MCP.",
+  "author": {
+    "name": "VoiceUse",
+    "email": "support@example.com",
+    "url": "https://github.com/jarmen423/voice-computer-use-agent"
+  },
+  "homepage": "https://github.com/jarmen423/voice-computer-use-agent",
+  "repository": "https://github.com/jarmen423/voice-computer-use-agent",
+  "license": "MIT",
+  "keywords": [
+    "computer-use",
+    "desktop-automation",
+    "voiceuse",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "VoiceUse Computer Control",
+    "shortDescription": "Give Codex tools to observe and control the local desktop through VoiceUse.",
+    "longDescription": "Exposes VoiceUse desktop tools through MCP so Codex can own the observe, reason, act, verify computer-use loop while VoiceUse provides screenshots, window focus, typing, clicking, and audit-safe execution adapters.",
+    "developerName": "VoiceUse",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/jarmen423/voice-computer-use-agent",
+    "privacyPolicyURL": "https://github.com/jarmen423/voice-computer-use-agent",
+    "termsOfServiceURL": "https://github.com/jarmen423/voice-computer-use-agent",
+    "defaultPrompt": [
+      "Use VoiceUse tools to complete this desktop task.",
+      "Observe the screen, act, then verify the result.",
+      "List windows and focus the app I name."
+    ],
+    "brandColor": "#2563EB"
+  }
+}
