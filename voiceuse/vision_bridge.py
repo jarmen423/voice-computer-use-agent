@@ -9,6 +9,7 @@ import tempfile
 import time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from voiceuse.config import Config
@@ -16,6 +17,15 @@ from voiceuse.models import CommandResult
 from voiceuse.os_controller import OSController
 
 logger = logging.getLogger(__name__)
+
+_CODEX_COMPUTER_USE_CONTRACT = (
+    Path(__file__).resolve().parents[1]
+    / ".codex"
+    / "skills"
+    / "codex-computer-use"
+    / "references"
+    / "action-contract.md"
+)
 
 
 @dataclass
@@ -312,26 +322,7 @@ class VisionBridge:
         executes that action, captures a new screenshot, and asks again until
         Codex returns ``done`` or ``failed``.
         """
-        history_text = self._format_computer_use_history(history)
-        prompt = (
-            "You are the computer-use planner for a local desktop voice assistant.\n"
-            f"Task: {task}\n"
-            f"Observed region: {target.label}, size {target.width}x{target.height}.\n\n"
-            "Recent action history:\n"
-            f"{history_text}\n\n"
-            "Return ONLY one JSON object for the next step. No markdown.\n"
-            "Allowed action shapes:\n"
-            '{"success": true, "action": "click", "x": 123, "y": 456, '
-            '"confidence": 0.91, "message": "why this click should work"}\n'
-            '{"success": true, "action": "type", "text": "hello", "message": "why typing is next"}\n'
-            '{"success": true, "action": "key", "key": "enter", "message": "why this key is next"}\n'
-            '{"success": true, "action": "wait", "wait_seconds": 1.0, "message": "why waiting helps"}\n'
-            '{"success": true, "action": "done", "message": "what changed on screen"}\n'
-            '{"success": true, "action": "failed", "message": "why the task cannot continue safely"}\n\n'
-            "Coordinates must be relative to the screenshot. Do not guess low-confidence clicks. "
-            "After an action was executed, inspect the current screenshot and return done only "
-            "if the task appears complete."
-        )
+        prompt = self._build_codex_computer_use_prompt(task, target, history)
         cmd = [
             "codex",
             "exec",
@@ -378,6 +369,37 @@ class VisionBridge:
             return {"success": False, "message": f"Could not parse Codex output: {out[:500]}"}
 
         return self._normalize_computer_action(data)
+
+    def _build_codex_computer_use_prompt(
+        self,
+        task: str,
+        target: ComputerUseTarget,
+        history: List[ComputerUseStep],
+    ) -> str:
+        """Build the Codex CLI prompt from the repo-local computer-use skill."""
+        history_text = self._format_computer_use_history(history)
+        contract = self._load_codex_computer_use_contract()
+        return (
+            "Use the Codex Computer Use skill.\n"
+            "You are the computer-use planner for a local desktop voice assistant.\n"
+            f"Task: {task}\n"
+            f"Observed region: {target.label}, size {target.width}x{target.height}.\n\n"
+            "Recent action history:\n"
+            f"{history_text}\n\n"
+            f"{contract}\n"
+        )
+
+    @staticmethod
+    def _load_codex_computer_use_contract() -> str:
+        """Load the repo-local Codex computer-use action contract."""
+        try:
+            return _CODEX_COMPUTER_USE_CONTRACT.read_text(encoding="utf-8")
+        except Exception as exc:
+            logger.warning("Could not load Codex computer-use skill contract: %s", exc)
+            return (
+                "Return ONLY one JSON object. Allowed actions: click, type, key, wait, done, failed. "
+                "Coordinates must be relative to the screenshot. Do not guess low-confidence clicks."
+            )
 
     # ------------------------------------------------------------------
     # Anthropic provider

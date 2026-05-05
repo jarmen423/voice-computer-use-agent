@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Computer Use"
+  short_description: "Guide Codex CLI computer-use loops for VoiceUse"
+  default_prompt: "Use Codex Computer Use to plan safe JSON desktop actions from screenshots."

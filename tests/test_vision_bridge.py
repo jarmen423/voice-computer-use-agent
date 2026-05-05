@@ -114,6 +114,19 @@ def test_extract_json_handles_nested_objects() -> None:
     assert parsed == {"success": True, "action": "click", "data": {"reason": "ok"}}
 
 
+def test_codex_prompt_loads_repo_skill_contract() -> None:
+    """VisionBridge should use the repo-local Codex computer-use skill contract."""
+    fake_os = FakeOSController()
+    bridge = VisionBridge(config=Config(), os_controller=fake_os)  # type: ignore[arg-type]
+    target = bridge._capture_target(app_name=None)
+
+    prompt = bridge._build_codex_computer_use_prompt("click submit", target, [])
+
+    assert "Use the Codex Computer Use skill" in prompt
+    assert "VoiceUse Codex Computer-Use Action Contract" in prompt
+    assert '"action": "click"' in prompt
+
+
 @pytest.mark.asyncio
 async def test_anthropic_action_parses_type_tool(tmp_path) -> None:
     """Anthropic computer-use type actions should map to the local type action."""
