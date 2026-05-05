@@ -5,7 +5,6 @@ import base64
 import json
 import logging
 import os
-import re
 import tempfile
 import time
 import uuid
@@ -539,13 +538,56 @@ class VisionBridge:
         except json.JSONDecodeError:
             pass
 
-        # 3. Regex grab first { ... } block (naïve but effective for simple objects)
-        match = re.search(r"\{[\s\S]*?\}", text)
-        if match:
-            try:
-                return json.loads(match.group(0))
-            except json.JSONDecodeError:
-                pass
+        # 3. Balanced scan for the first valid JSON object in mixed output.
+        extracted = VisionBridge._first_json_object(text)
+        if extracted is not None:
+            return extracted
+
+        return None
+
+    @staticmethod
+    def _first_json_object(text: str) -> Optional[Dict[str, Any]]:
+        """Return the first balanced JSON object embedded in ``text``.
+
+        This intentionally avoids a regular expression because action payloads
+        can contain nested ``data`` dictionaries or braces inside strings. The
+        scanner tracks string quoting and nesting depth before attempting
+        ``json.loads``.
+        """
+        start: Optional[int] = None
+        depth = 0
+        in_string = False
+        escape = False
+
+        for index, char in enumerate(text):
+            if start is None:
+                if char == "{":
+                    start = index
+                    depth = 1
+                continue
+
+            if escape:
+                escape = False
+                continue
+            if char == "\\" and in_string:
+                escape = True
+                continue
+            if char == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start : index + 1]
+                    try:
+                        return json.loads(candidate)
+                    except json.JSONDecodeError:
+                        start = None
+                        depth = 0
 
         return None
 

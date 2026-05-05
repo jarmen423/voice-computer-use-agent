@@ -105,6 +105,15 @@ def test_capture_target_reuses_short_lived_cache_and_force_refreshes() -> None:
     assert len(fake_os.screenshots) == 2
 
 
+def test_extract_json_handles_nested_objects() -> None:
+    """Provider output parsing should handle nested JSON instead of first braces only."""
+    text = 'thinking...\n{"success": true, "action": "click", "data": {"reason": "ok"}}\n'
+
+    parsed = VisionBridge._extract_json_from_text(text)
+
+    assert parsed == {"success": True, "action": "click", "data": {"reason": "ok"}}
+
+
 @pytest.mark.asyncio
 async def test_anthropic_action_parses_type_tool(tmp_path) -> None:
     """Anthropic computer-use type actions should map to the local type action."""
