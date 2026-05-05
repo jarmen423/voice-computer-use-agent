@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from voiceuse import os_services
 from voiceuse.models import WindowInfo
-from voiceuse.os_services import InputSimulator, ScreenshotService, SystemCommandExecutor, WindowResolver
+from voiceuse.models import CommandResult
+from voiceuse.os_services import BrowserWorkflow, InputSimulator, ScreenshotService, SystemCommandExecutor, WindowResolver
 
 
 class FakePyAutoGUI:
@@ -160,3 +161,25 @@ def test_window_resolver_uses_alias_and_largest_fallback() -> None:
     result = resolver.find_window("comet")
 
     assert result is windows[1]
+
+
+def test_browser_workflow_search_focuses_address_bar(monkeypatch) -> None:
+    """Browser search should compose app open, focus, address-bar hotkey, typing, and enter."""
+    fake_gui = FakePyAutoGUI()
+    simulator = InputSimulator(fake_gui)
+    window = WindowInfo(title="Chrome", pid=1, rect=(0, 0, 100, 100), monitor_index=1)
+    monkeypatch.setattr("voiceuse.os_services.time.sleep", lambda _: None)
+    workflow = BrowserWorkflow(
+        preferred_browser="chrome",
+        open_app=lambda app_name: CommandResult(success=True, message=f"opened {app_name}"),
+        find_window=lambda app_name: window,
+        focus_window=lambda win: CommandResult(success=True, message=f"focused {win.title}"),
+        input_simulator=simulator,
+    )
+
+    result = workflow.browser_search("weather today")
+
+    assert result.success is True
+    assert fake_gui.hotkeys == [("ctrl", "l")]
+    assert fake_gui.typed == ["weather today"]
+    assert fake_gui.keys == ["enter"]

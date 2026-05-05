@@ -19,7 +19,7 @@ except ImportError:
 
 from voiceuse.config import Config
 from voiceuse.models import CommandResult, MonitorInfo, WindowInfo
-from voiceuse.os_services import InputSimulator, ScreenshotService, SystemCommandExecutor, WindowResolver
+from voiceuse.os_services import BrowserWorkflow, InputSimulator, ScreenshotService, SystemCommandExecutor, WindowResolver
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +69,13 @@ class OSController:
         self.screenshot_service = ScreenshotService(MSS)
         self.command_executor = SystemCommandExecutor()
         self.window_resolver = WindowResolver(config.app.aliases, self.list_windows)
+        self.browser_workflow = BrowserWorkflow(
+            preferred_browser=config.app.preferred_browser,
+            open_app=self.open_app,
+            find_window=self.find_window,
+            focus_window=self.focus_window,
+            input_simulator=self.input_simulator,
+        )
         _check_platform_deps()
         if pyautogui is None:
             logger.error("pyautogui is not installed; OS control will fail.")
@@ -603,62 +610,14 @@ class OSController:
         Teams) support a universal search via Ctrl+K.  We focus the app
         and type the label, but we do not verify the chat actually opens.
         """
-        window = self.find_window(app_name)
-        if window is None:
-            return CommandResult(success=False, message=f"App '{app_name}' not found for find_chat.")
-        focus_res = self.focus_window(window)
-        if isinstance(focus_res, CommandResult) and not focus_res.success:
-            return CommandResult(success=False, message=f"Failed to focus {app_name}: {focus_res.message}")
-        # Best-effort: type the chat label (many apps support Ctrl+K search)
-        self.type_text(chat_label)
-        self.press_key("enter")
-        return CommandResult(success=True, message=f"Focused {app_name} and entered '{chat_label}'.")
+        return self.browser_workflow.find_chat(app_name, chat_label)
 
     # ------------------------------------------------------------------
     # Browser
     # ------------------------------------------------------------------
     def browser_search(self, query: str, browser: Optional[str] = None) -> CommandResult:
         """Open *browser* (or preferred_browser from config) and navigate to *query*."""
-        browser_name = browser or self.config.app.preferred_browser
-        # Launch / focus browser
-        res = self.open_app(browser_name)
-        if not res.success:
-            return res
-
-        # Wait for window
-        time.sleep(1.0)
-        win = None
-        for _ in range(10):
-            win = self.find_window(browser_name)
-            if win:
-                break
-            time.sleep(0.5)
-        if not win:
-            return CommandResult(success=False, message=f"Could not find {browser_name} window.")
-
-        focus_res = self.focus_window(win)
-        if not focus_res.success:
-            return focus_res
-
-        time.sleep(0.5)
-
-        # Focus address bar: Ctrl+L works in Chrome, Firefox, Edge, Safari
-        if pyautogui is None:
-            return CommandResult(success=False, message="pyautogui is not installed; cannot simulate browser input.")
-        pyautogui.keyDown("ctrl")
-        pyautogui.keyDown("l")
-        pyautogui.keyUp("l")
-        pyautogui.keyUp("ctrl")
-        time.sleep(0.2)
-
-        # Determine if query is a URL or search term
-        is_url = "." in query and " " not in query
-        if is_url:
-            self.type_text(query)
-        else:
-            self.type_text(query)
-            self.press_key("enter")
-        return CommandResult(success=True, message=f"Navigated to: {query}")
+        return self.browser_workflow.browser_search(query, browser)
 
     # ------------------------------------------------------------------
     # Split view

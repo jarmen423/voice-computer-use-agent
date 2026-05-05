@@ -14,6 +14,7 @@ import os
 import shlex
 import subprocess
 import difflib
+import time
 from typing import Any, Callable, Optional
 
 from voiceuse.models import CommandResult, WindowInfo
@@ -54,6 +55,10 @@ class InputSimulator:
     def press_key(self, key: str) -> None:
         """Press a single key such as ``enter``, ``tab``, or ``esc``."""
         self._require_pyautogui().press(key)
+
+    def hotkey(self, *keys: str) -> None:
+        """Press a keyboard chord such as ``ctrl+l``."""
+        self._require_pyautogui().hotkey(*keys)
 
     def _paste_unicode_text(self, text: str, pyautogui_module: Any) -> None:
         """Paste text through the clipboard and restore the old clipboard when possible."""
@@ -260,3 +265,67 @@ class WindowResolver:
             if window.is_active:
                 return window
         return sorted(windows, key=lambda w: w.rect[2] * w.rect[3], reverse=True)[0]
+
+
+class BrowserWorkflow:
+    """User-facing browser and chat workflows built from smaller OS services."""
+
+    def __init__(
+        self,
+        preferred_browser: str,
+        open_app: Callable[[str], CommandResult],
+        find_window: Callable[[str], Optional[WindowInfo]],
+        focus_window: Callable[[WindowInfo], CommandResult],
+        input_simulator: InputSimulator,
+    ) -> None:
+        self._preferred_browser = preferred_browser
+        self._open_app = open_app
+        self._find_window = find_window
+        self._focus_window = focus_window
+        self._input = input_simulator
+
+    def find_chat(self, app_name: str, chat_label: str) -> CommandResult:
+        """Focus an app and enter a chat/search label."""
+        window = self._find_window(app_name)
+        if window is None:
+            return CommandResult(success=False, message=f"App '{app_name}' not found for find_chat.")
+        focus_res = self._focus_window(window)
+        if not focus_res.success:
+            return CommandResult(success=False, message=f"Failed to focus {app_name}: {focus_res.message}")
+        self._input.type_text(chat_label)
+        self._input.press_key("enter")
+        return CommandResult(success=True, message=f"Focused {app_name} and entered '{chat_label}'.")
+
+    def browser_search(self, query: str, browser: Optional[str] = None) -> CommandResult:
+        """Open a browser, focus the address bar, type a query or URL, and submit."""
+        browser_name = browser or self._preferred_browser
+        res = self._open_app(browser_name)
+        if not res.success:
+            return res
+
+        time.sleep(1.0)
+        win = None
+        for _ in range(10):
+            win = self._find_window(browser_name)
+            if win:
+                break
+            time.sleep(0.5)
+        if not win:
+            return CommandResult(success=False, message=f"Could not find {browser_name} window.")
+
+        focus_res = self._focus_window(win)
+        if not focus_res.success:
+            return focus_res
+
+        time.sleep(0.5)
+        self._input.hotkey("ctrl", "l")
+        time.sleep(0.2)
+        self._input.type_text(query)
+        if not self._looks_like_url(query):
+            self._input.press_key("enter")
+        return CommandResult(success=True, message=f"Navigated to: {query}")
+
+    @staticmethod
+    def _looks_like_url(query: str) -> bool:
+        """Return true when a query looks like a direct URL instead of search text."""
+        return "." in query and " " not in query
