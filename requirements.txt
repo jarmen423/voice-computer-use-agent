@@ -19,6 +19,7 @@ simpleaudio>=1.0.4
 
 # OS control / screenshots
 pyautogui>=0.9.54
+pyperclip>=1.8.2
 mss>=9.0.1
 pygetwindow>=0.0.9
 pywin32>=306; sys_platform == "win32"

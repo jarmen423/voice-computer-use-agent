@@ -3,7 +3,6 @@
 import difflib
 import logging
 import os
-import shlex
 import subprocess
 import sys
 import time
@@ -21,6 +20,7 @@ except ImportError:
 
 from voiceuse.config import Config
 from voiceuse.models import CommandResult, MonitorInfo, WindowInfo
+from voiceuse.os_services import InputSimulator, SystemCommandExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,8 @@ class OSController:
         self._window_cache_ttl_seconds = 0.5
         self._window_cache_expires_at = 0.0
         self._window_cache: List[WindowInfo] = []
+        self.input_simulator = InputSimulator(pyautogui)
+        self.command_executor = SystemCommandExecutor()
         _check_platform_deps()
         if pyautogui is None:
             logger.error("pyautogui is not installed; OS control will fail.")
@@ -631,108 +633,22 @@ class OSController:
     # ------------------------------------------------------------------
     def click(self, x: int, y: int) -> None:
         """Click at global screen coordinates (x, y)."""
-        if pyautogui is None:
-            raise RuntimeError("pyautogui is not installed; cannot simulate input.")
-        pyautogui.click(x, y)
+        self.input_simulator.click(x, y)
 
     def type_text(self, text: str) -> None:
         """Type *text* with a small interval between keystrokes."""
-        if pyautogui is None:
-            raise RuntimeError("pyautogui is not installed; cannot simulate input.")
-        pyautogui.typewrite(text, interval=0.01)
+        self.input_simulator.type_text(text)
 
     def press_key(self, key: str) -> None:
         """Press a single key (e.g. 'enter', 'tab', 'esc')."""
-        if pyautogui is None:
-            raise RuntimeError("pyautogui is not installed; cannot simulate input.")
-        pyautogui.press(key)
+        self.input_simulator.press_key(key)
 
     # ------------------------------------------------------------------
     # System command execution (moved from Brain for architecture cohesion)
     # ------------------------------------------------------------------
-    # Only commands with inert, inspect-only behavior belong here. Interpreters,
-    # package managers, shells, git, and build tools are intentionally excluded
-    # because a prefix allow-list cannot validate the code they may execute.
-    _ALLOWED_COMMANDS: dict[str, set[str]] = {
-        "echo": set(),
-        "pwd": set(),
-        "dir": set(),
-        "ls": {"-l", "-la", "-al", "-a"},
-        "whoami": set(),
-    }
-
     def execute_system(self, command: str, allow_shell: bool = False) -> CommandResult:
-        """Execute a narrow set of inspect-only commands.
-
-        VoiceUse is a desktop-control assistant, not a general shell agent.
-        Prefix allow-lists are unsafe for commands like ``python``, ``node``,
-        ``pip``, and ``git`` because the first token says little about the side
-        effects of the arguments.  This method therefore rejects shell mode,
-        compound commands, and any command outside a small inspect-only set.
-        """
-        if not command or not command.strip():
-            return CommandResult(success=False, message="Empty command.")
-
-        cmd_str = command.strip()
-
-        if allow_shell:
-            return CommandResult(
-                success=False,
-                message="Shell execution is disabled. Use a dedicated approved tool for shell workflows.",
-            )
-
-        try:
-            cmd_parts = shlex.split(cmd_str)
-        except ValueError:
-            return CommandResult(
-                success=False,
-                message="Could not parse command safely.",
-            )
-        if not cmd_parts:
-            return CommandResult(success=False, message="Empty command after parsing.")
-
-        first_token = os.path.basename(cmd_parts[0]).lower()
-        allowed_flags = self._ALLOWED_COMMANDS.get(first_token)
-        if allowed_flags is None:
-            logger.warning("Command '%s' not in safe inspect-only allow-list; blocking.", first_token)
-            return CommandResult(
-                success=False,
-                message=f"Command '{first_token}' is blocked by the inspect-only command policy.",
-            )
-
-        for arg in cmd_parts[1:]:
-            if any(token in arg for token in (";", "&&", "||", "|", ">", "<", "`", "$(")):
-                return CommandResult(
-                    success=False,
-                    message="Compound shell syntax is blocked.",
-                )
-            if arg.startswith("-") and arg not in allowed_flags:
-                return CommandResult(
-                    success=False,
-                    message=f"Flag '{arg}' is not allowed for command '{first_token}'.",
-                )
-
-        logger.warning("Executing system command: %s", cmd_str)
-        try:
-            proc = subprocess.run(
-                cmd_parts,
-                shell=False,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            stdout = proc.stdout.strip()[:200] if proc.stdout else ""
-            if proc.returncode == 0:
-                msg = f"Command executed. Output: {stdout}" if stdout else "Command executed successfully."
-                return CommandResult(success=True, message=msg)
-            stderr = proc.stderr.strip()[:200] if proc.stderr else ""
-            return CommandResult(
-                success=False,
-                message=f"Command failed (exit {proc.returncode}): {stderr}",
-            )
-        except Exception as exc:
-            logger.error("execute_system failed: %s", exc)
-            return CommandResult(success=False, message=f"Failed to execute command: {exc}")
+        """Execute a narrow set of inspect-only commands through the command service."""
+        return self.command_executor.execute(command, allow_shell=allow_shell)
 
     # ------------------------------------------------------------------
     # Chat finder (best-effort shim — moved from Brain)
