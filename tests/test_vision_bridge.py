@@ -88,3 +88,17 @@ async def test_find_and_click_blocks_low_confidence_click() -> None:
     assert result.success is False
     assert "Low click confidence" in result.message
     assert fake_os.clicks == []
+
+
+def test_capture_target_reuses_short_lived_cache_and_force_refreshes() -> None:
+    """Rapid repeated captures can reuse a screenshot, while force gets a new one."""
+    fake_os = FakeOSController()
+    bridge = VisionBridge(config=Config(), os_controller=fake_os)  # type: ignore[arg-type]
+
+    first = bridge._capture_target(app_name=None)
+    cached = bridge._capture_target(app_name=None)
+    refreshed = bridge._capture_target(app_name=None, force=True)
+
+    assert first.screenshot_path == cached.screenshot_path
+    assert refreshed.screenshot_path != first.screenshot_path
+    assert len(fake_os.screenshots) == 2

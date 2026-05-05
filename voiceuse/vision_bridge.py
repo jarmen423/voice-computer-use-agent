@@ -8,8 +8,9 @@ import os
 import re
 import tempfile
 import time
+import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from voiceuse.config import Config
 from voiceuse.models import CommandResult
@@ -56,6 +57,8 @@ class VisionBridge:
         self.config = config
         self.os = os_controller
         self._anthropic_client: Any = None
+        self._screenshot_cache: Dict[str, Tuple[float, ComputerUseTarget]] = {}
+        self._screenshot_cache_ttl_seconds = 0.2
 
     # ------------------------------------------------------------------
     # Anthropic client helper (lazy initialisation)
@@ -159,7 +162,7 @@ class VisionBridge:
 
             await asyncio.sleep(float(action.get("wait_seconds", 0.4)))
             try:
-                target = await asyncio.to_thread(self._capture_target, app_name)
+                target = await asyncio.to_thread(self._capture_target, app_name, True)
             except Exception as exc:
                 return CommandResult(
                     success=False,
@@ -173,9 +176,22 @@ class VisionBridge:
             data={"steps": [s.__dict__ for s in steps]},
         )
 
-    def _capture_target(self, app_name: Optional[str]) -> ComputerUseTarget:
-        """Focus the requested target and capture the latest observable UI state."""
-        screenshot_path = os.path.join(tempfile.gettempdir(), "voiceuse_computer_use.png")
+    def _capture_target(self, app_name: Optional[str], force: bool = False) -> ComputerUseTarget:
+        """Focus the requested target and capture the latest observable UI state.
+
+        Args:
+            app_name: Optional target app/window name to focus and crop.
+            force: When true, bypass the very short cache. The computer-use loop
+                uses this after local actions so the next model call sees fresh
+                state instead of a pre-action screenshot.
+        """
+        cache_key = f"app:{app_name}" if app_name else "monitor:primary"
+        cached = self._screenshot_cache.get(cache_key)
+        now = time.monotonic()
+        if not force and cached is not None and cached[0] > now:
+            return cached[1]
+
+        screenshot_path = self._new_screenshot_path()
 
         if app_name:
             window = self.os.find_window(app_name)
@@ -186,7 +202,7 @@ class VisionBridge:
                 raise RuntimeError(focus_res.message)
             time.sleep(0.3)
             self.os.screenshot_window(window, screenshot_path)
-            return ComputerUseTarget(
+            target = ComputerUseTarget(
                 screenshot_path=screenshot_path,
                 origin_x=window.rect[0],
                 origin_y=window.rect[1],
@@ -194,13 +210,15 @@ class VisionBridge:
                 height=window.rect[3],
                 label=f"window:{window.title}",
             )
+            self._screenshot_cache[cache_key] = (now + self._screenshot_cache_ttl_seconds, target)
+            return target
 
         monitors = self.os.list_monitors()
         monitor = next((m for m in monitors if m.is_primary), monitors[0] if monitors else None)
         if monitor is None:
             raise RuntimeError("No monitors available.")
         self.os.screenshot_monitor(monitor.index, screenshot_path)
-        return ComputerUseTarget(
+        target = ComputerUseTarget(
             screenshot_path=screenshot_path,
             origin_x=monitor.rect[0],
             origin_y=monitor.rect[1],
@@ -208,6 +226,14 @@ class VisionBridge:
             height=monitor.rect[3],
             label=f"monitor:{monitor.index}",
         )
+        self._screenshot_cache[cache_key] = (now + self._screenshot_cache_ttl_seconds, target)
+        return target
+
+    @staticmethod
+    def _new_screenshot_path() -> str:
+        """Return a unique temp path for one computer-use screenshot."""
+        filename = f"voiceuse_computer_use_{os.getpid()}_{uuid.uuid4().hex}.png"
+        return os.path.join(tempfile.gettempdir(), filename)
 
     async def _call_computer_use_provider(
         self,
