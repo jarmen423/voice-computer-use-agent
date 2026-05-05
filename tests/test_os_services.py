@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from voiceuse import os_services
-from voiceuse.os_services import InputSimulator, SystemCommandExecutor
+from voiceuse.models import WindowInfo
+from voiceuse.os_services import InputSimulator, ScreenshotService, SystemCommandExecutor
 
 
 class FakePyAutoGUI:
@@ -47,6 +48,36 @@ class FakeClipboard:
         self.value = text
 
 
+class FakeScreenshot:
+    """Minimal MSS screenshot object."""
+
+    rgb = b"rgb"
+    size = (1, 1)
+
+
+class FakeMSS:
+    """Context-manager fake for MSS monitor/window capture."""
+
+    def __init__(self) -> None:
+        self.monitors = [
+            {"left": 0, "top": 0, "width": 100, "height": 100},
+            {"left": 0, "top": 0, "width": 100, "height": 100},
+        ]
+        self.grabbed_regions: list[dict[str, int]] = []
+
+    def __enter__(self) -> "FakeMSS":
+        """Enter fake context manager."""
+        return self
+
+    def __exit__(self, *args) -> None:
+        """Exit fake context manager."""
+
+    def grab(self, region: dict[str, int]) -> FakeScreenshot:
+        """Record the requested capture region."""
+        self.grabbed_regions.append(region)
+        return FakeScreenshot()
+
+
 def test_input_simulator_uses_typewrite_for_ascii() -> None:
     """ASCII text should keep the direct keyboard typing path."""
     fake_gui = FakePyAutoGUI()
@@ -80,3 +111,26 @@ def test_system_command_executor_blocks_compound_syntax() -> None:
 
     assert result.success is False
     assert "compound" in result.message.lower()
+
+
+def test_screenshot_service_captures_window_region(monkeypatch, tmp_path) -> None:
+    """ScreenshotService should translate WindowInfo rectangles into MSS regions."""
+    fake_mss = FakeMSS()
+    writes: list[str] = []
+
+    monkeypatch.setattr(
+        ScreenshotService,
+        "_write_png",
+        staticmethod(lambda screenshot, output_path: writes.append(output_path)),
+    )
+    service = ScreenshotService(lambda: fake_mss)
+    output_path = str(tmp_path / "window.png")
+
+    result = service.screenshot_window(
+        WindowInfo(title="Chrome", pid=1, rect=(10, 20, 300, 200), monitor_index=1),
+        output_path,
+    )
+
+    assert result == output_path
+    assert fake_mss.grabbed_regions == [{"left": 10, "top": 20, "width": 300, "height": 200}]
+    assert writes == [output_path]

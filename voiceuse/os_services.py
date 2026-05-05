@@ -15,7 +15,7 @@ import shlex
 import subprocess
 from typing import Any, Optional
 
-from voiceuse.models import CommandResult
+from voiceuse.models import CommandResult, WindowInfo
 
 try:
     import pyperclip
@@ -161,3 +161,46 @@ class SystemCommandExecutor:
             if arg.startswith("-") and arg not in allowed_flags:
                 return f"Flag '{arg}' is not allowed for command '{first_token}'."
         return ""
+
+
+class ScreenshotService:
+    """Capture monitor or window regions through the MSS screenshot backend."""
+
+    def __init__(self, mss_factory: Optional[Any]) -> None:
+        self._mss_factory = mss_factory
+
+    def screenshot_monitor(self, monitor_index: int, output_path: str) -> str:
+        """Grab a specific monitor and save it as a PNG."""
+        mss_factory = self._require_mss()
+        with mss_factory() as sct:
+            if monitor_index < 1 or monitor_index >= len(sct.monitors):
+                raise ValueError(f"Invalid monitor index {monitor_index}. Available: 1..{len(sct.monitors)-1}")
+            mon = sct.monitors[monitor_index]
+            screenshot = sct.grab(mon)
+            self._write_png(screenshot, output_path)
+        logger.info("Screenshot saved to %s (monitor %s)", output_path, monitor_index)
+        return output_path
+
+    def screenshot_window(self, window: WindowInfo, output_path: str) -> str:
+        """Grab a window rectangle and save it as a PNG."""
+        mss_factory = self._require_mss()
+        x, y, w, h = window.rect
+        region = {"left": x, "top": y, "width": w, "height": h}
+        with mss_factory() as sct:
+            screenshot = sct.grab(region)
+            self._write_png(screenshot, output_path)
+        logger.info("Screenshot saved to %s (window %s)", output_path, window.title)
+        return output_path
+
+    @staticmethod
+    def _write_png(screenshot: Any, output_path: str) -> None:
+        """Write an MSS screenshot object to disk via mss.tools."""
+        import mss.tools
+
+        mss.tools.to_png(screenshot.rgb, screenshot.size, output=output_path)
+
+    def _require_mss(self) -> Any:
+        """Return the MSS factory or raise with operational context."""
+        if self._mss_factory is None:
+            raise RuntimeError("mss is not installed; cannot take screenshots.")
+        return self._mss_factory

@@ -20,7 +20,7 @@ except ImportError:
 
 from voiceuse.config import Config
 from voiceuse.models import CommandResult, MonitorInfo, WindowInfo
-from voiceuse.os_services import InputSimulator, SystemCommandExecutor
+from voiceuse.os_services import InputSimulator, ScreenshotService, SystemCommandExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,7 @@ class OSController:
         self._window_cache_expires_at = 0.0
         self._window_cache: List[WindowInfo] = []
         self.input_simulator = InputSimulator(pyautogui)
+        self.screenshot_service = ScreenshotService(MSS)
         self.command_executor = SystemCommandExecutor()
         _check_platform_deps()
         if pyautogui is None:
@@ -602,31 +603,11 @@ class OSController:
     # ------------------------------------------------------------------
     def screenshot_monitor(self, monitor_index: int, output_path: str) -> str:
         """Grab a specific monitor and save to *output_path*."""
-        if MSS is None:
-            raise RuntimeError("mss is not installed; cannot take screenshots.")
-        with MSS() as sct:
-            # mss indices: 0 = all, 1..N = individual
-            if monitor_index < 1 or monitor_index >= len(sct.monitors):
-                raise ValueError(f"Invalid monitor index {monitor_index}. Available: 1..{len(sct.monitors)-1}")
-            mon = sct.monitors[monitor_index]
-            screenshot = sct.grab(mon)
-            import mss.tools
-            mss.tools.to_png(screenshot.rgb, screenshot.size, output=output_path)
-        logger.info("Screenshot saved to %s (monitor %s)", output_path, monitor_index)
-        return output_path
+        return self.screenshot_service.screenshot_monitor(monitor_index, output_path)
 
     def screenshot_window(self, window: WindowInfo, output_path: str) -> str:
         """Grab the region defined by *window.rect* and save to *output_path*."""
-        if MSS is None:
-            raise RuntimeError("mss is not installed; cannot take screenshots.")
-        x, y, w, h = window.rect
-        region = {"left": x, "top": y, "width": w, "height": h}
-        with MSS() as sct:
-            screenshot = sct.grab(region)
-            import mss.tools
-            mss.tools.to_png(screenshot.rgb, screenshot.size, output=output_path)
-        logger.info("Screenshot saved to %s (window %s)", output_path, window.title)
-        return output_path
+        return self.screenshot_service.screenshot_window(window, output_path)
 
     # ------------------------------------------------------------------
     # Input simulation
