@@ -1,4 +1,11 @@
-"""TTS Manager for VoiceUse: text-to-speech output with fallback engines."""
+"""TTS Manager for VoiceUse: cancellable text-to-speech output.
+
+Voice assistants need a stricter audio contract than "play every sentence in
+order." The user may start speaking while the assistant is talking, or a later
+result may make an earlier phrase stale. This manager owns the speech queue and
+the active playback backend so the rest of the application can explicitly stop
+old audio before continuing.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -49,6 +56,8 @@ class TTSManager:
         self._queue: asyncio.Queue[str] = asyncio.Queue()
         self._worker_task: Optional[asyncio.Task[None]] = None
         self._stop_event: asyncio.Event = asyncio.Event()
+        self._cancel_event = threading.Event()
+        self._current_process: Optional[asyncio.subprocess.Process] = None
 
         # pyttsx3 fallback engine (initialised lazily in worker thread)
         self._pyttsx3_engine: Optional[Any] = None
@@ -70,6 +79,7 @@ class TTSManager:
         """Stop the worker and drain the queue."""
         logger.info("TTSManager stopping...")
         self._stop_event.set()
+        await self.cancel()
 
         # Cancel any pending worker
         if self._worker_task is not None and not self._worker_task.done():
@@ -78,14 +88,6 @@ class TTSManager:
                 await self._worker_task
             except asyncio.CancelledError:
                 pass
-
-        # Drain queue so pending speak() calls don't hang
-        while not self._queue.empty():
-            try:
-                self._queue.get_nowait()
-                self._queue.task_done()
-            except asyncio.QueueEmpty:
-                break
 
         # Stop pygame mixer if initialised
         if pygame is not None and pygame.mixer.get_init():
@@ -100,14 +102,39 @@ class TTSManager:
     # Public API
     # ------------------------------------------------------------------
 
-    async def speak(self, text: str) -> None:
-        """Enqueue text to be spoken."""
+    async def speak(self, text: str, *, interrupt: bool = False) -> None:
+        """Enqueue text to be spoken.
+
+        Args:
+            text: Natural-language phrase to synthesize.
+            interrupt: When true, cancel the active playback and clear queued
+                stale speech before adding this phrase. This is the path to use
+                when a new voice turn should take precedence over old audio.
+        """
         if not text.strip():
             return
         if not self.tts_config.enabled:
             logger.debug("TTS is disabled; skipping: %s", text)
             return
+        if interrupt:
+            await self.cancel()
         await self._queue.put(text)
+
+    async def cancel(self) -> None:
+        """Stop active speech and remove queued speech that has gone stale."""
+        self._cancel_event.set()
+        self._drain_queue()
+        self._terminate_current_process()
+        await asyncio.to_thread(self._stop_threaded_backends)
+
+    def _drain_queue(self) -> None:
+        """Remove all queued speech jobs and mark them complete."""
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+                self._queue.task_done()
+            except asyncio.QueueEmpty:
+                break
 
     # ------------------------------------------------------------------
     # Queue worker
@@ -131,10 +158,11 @@ class TTSManager:
                 self._queue.task_done()
                 continue
 
+            self._cancel_event.clear()
             success = await self._speak_with_edge_tts(text)
-            if not success:
+            if not success and not self._cancel_event.is_set():
                 success = await self._speak_with_pyttsx3(text)
-            if not success:
+            if not success and not self._cancel_event.is_set():
                 logger.error("All TTS engines failed for text: %s", text)
                 print(f"[TTSManager] ERROR: Could not speak: {text}")
 
@@ -192,15 +220,20 @@ class TTSManager:
 
     def _pyttsx3_speak_sync(self, text: str) -> None:
         """Thread-safe synchronous pyttsx3 speak."""
+        engine = pyttsx3.init()
         with self._pyttsx3_lock:
-            try:
-                engine = pyttsx3.init()
-                engine.say(text)
-                engine.runAndWait()
-                engine.stop()
-            except Exception as exc:
-                logger.warning("pyttsx3 engine error: %s", exc)
-                raise
+            self._pyttsx3_engine = engine
+        try:
+            engine.say(text)
+            engine.runAndWait()
+            engine.stop()
+        except Exception as exc:
+            logger.warning("pyttsx3 engine error: %s", exc)
+            raise
+        finally:
+            with self._pyttsx3_lock:
+                if self._pyttsx3_engine is engine:
+                    self._pyttsx3_engine = None
 
     # ------------------------------------------------------------------
     # Audio playback helpers
@@ -245,11 +278,14 @@ class TTSManager:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+            self._current_process = proc
             await proc.wait()
             return proc.returncode == 0
         except Exception as exc:
             logger.debug("ffplay failed: %s", exc)
             return False
+        finally:
+            self._current_process = None
 
     async def _try_mpv(self, file_path: str) -> bool:
         """Play with mpv media player."""
@@ -264,11 +300,14 @@ class TTSManager:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+            self._current_process = proc
             await proc.wait()
             return proc.returncode == 0
         except Exception as exc:
             logger.debug("mpv failed: %s", exc)
             return False
+        finally:
+            self._current_process = None
 
     async def _try_pygame(self, file_path: str) -> bool:
         """Play with pygame.mixer."""
@@ -288,9 +327,11 @@ class TTSManager:
             pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
         pygame.mixer.music.load(file_path)
         pygame.mixer.music.play()
-        # Wait for playback to finish
-        while pygame.mixer.music.get_busy():
+        # Poll the shared cancellation event so user interruptions stop playback.
+        while pygame.mixer.music.get_busy() and not self._cancel_event.is_set():
             pygame.time.wait(50)
+        if self._cancel_event.is_set():
+            pygame.mixer.music.stop()
         pygame.mixer.music.unload()
 
     async def _try_pydub(self, file_path: str) -> bool:
@@ -320,8 +361,38 @@ class TTSManager:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+            self._current_process = proc
             await proc.wait()
             return proc.returncode == 0
         except Exception as exc:
             logger.debug("afplay failed: %s", exc)
             return False
+        finally:
+            self._current_process = None
+
+    def _terminate_current_process(self) -> None:
+        """Terminate subprocess playback backends from the event-loop thread."""
+        proc = self._current_process
+        if proc is None or proc.returncode is not None:
+            return
+        try:
+            proc.terminate()
+        except ProcessLookupError:
+            return
+        except Exception as exc:
+            logger.debug("Failed to terminate TTS playback process: %s", exc)
+
+    def _stop_threaded_backends(self) -> None:
+        """Stop playback engines that run in executor threads."""
+        if pygame is not None and pygame.mixer.get_init():
+            try:
+                pygame.mixer.music.stop()
+            except Exception as exc:
+                logger.debug("Failed to stop pygame playback: %s", exc)
+
+        with self._pyttsx3_lock:
+            if self._pyttsx3_engine is not None:
+                try:
+                    self._pyttsx3_engine.stop()
+                except Exception as exc:
+                    logger.debug("Failed to stop pyttsx3 playback: %s", exc)

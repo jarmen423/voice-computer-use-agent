@@ -244,6 +244,8 @@ class Application:
         """Handle hotkey press notifications from the input subsystem."""
         self._set_state(ApplicationState.LISTENING)
         logger.info("Hotkey pressed - recording started by InputManager.")
+        if self.tts_manager is not None:
+            await self.tts_manager.cancel()
         if self.active_plugin is not None and hasattr(self.active_plugin, "on_hotkey_press"):
             await self.active_plugin.on_hotkey_press()
 
@@ -259,6 +261,8 @@ class Application:
     async def on_wake_word_detected(self, audio_bytes: bytes) -> None:
         """Handle wake-word audio and schedule command processing."""
         logger.info("Wake word detected - processing %d bytes of audio.", len(audio_bytes))
+        if self.tts_manager is not None:
+            await self.tts_manager.cancel()
         if self.active_plugin is not None and hasattr(self.active_plugin, "on_wake_word"):
             await self.active_plugin.on_wake_word(audio_bytes)
             return
@@ -276,13 +280,13 @@ class Application:
         finally:
             self._set_state(ApplicationState.IDLE)
 
-    async def speak(self, text: str) -> None:
+    async def speak(self, text: str, *, interrupt: bool = False) -> None:
         """Speak text through the configured TTS manager, swallowing output errors."""
         if self.tts_manager is None or not text:
             return
         self._set_state(ApplicationState.SPEAKING)
         try:
-            await self.tts_manager.speak(text)
+            await self.tts_manager.speak(text, interrupt=interrupt)
         except Exception as exc:
             logger.warning("TTS speak failed: %s", exc)
         finally:
@@ -298,12 +302,12 @@ class Application:
             text = await self.input_manager.transcribe_audio(audio_bytes)
         except Exception as exc:
             logger.error("Transcription step failed: %s", exc)
-            await self.speak("Sorry, I didn't catch that.")
+            await self.speak("Sorry, I didn't catch that.", interrupt=True)
             return
 
         if not text:
             logger.info("Empty transcription; nothing to do.")
-            await self.speak("I didn't hear anything.")
+            await self.speak("I didn't hear anything.", interrupt=True)
             return
 
         logger.info("Transcribed: %r", text)
@@ -313,14 +317,14 @@ class Application:
             result = await self.brain.process_command(text)
         except LLMError as exc:
             logger.error("Brain LLM error: %s", exc)
-            await self.speak("I'm having trouble reaching my language model right now.")
+            await self.speak("I'm having trouble reaching my language model right now.", interrupt=True)
             return
         except Exception:
             logger.exception("Brain processing error")
-            await self.speak("Something went wrong while trying to help.")
+            await self.speak("Something went wrong while trying to help.", interrupt=True)
             return
 
-        await self.speak(result.message)
+        await self.speak(result.message, interrupt=True)
 
     def request_shutdown(self, sig: int) -> None:
         """Signal-safe shutdown entrypoint used by process signal handlers."""
