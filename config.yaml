@@ -60,6 +60,14 @@ app:
   preferred_terminal: cmd
   codex_app_name: Codex
   dry_run: false
+  aliases:
+    # Map spoken names / STT hallucinations to exact Windows app names.
+    # Keys = what the user (or Whisper) might say.
+    # Values = exact name Windows understands via os.startfile().
+    comet: "Comet Browser"
+    # Add more as needed:
+    # vscode: "Visual Studio Code"
+    # edge: "Microsoft Edge"
 
 plugins:
   grok_voice:

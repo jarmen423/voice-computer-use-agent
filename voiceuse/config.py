@@ -1,7 +1,7 @@
 """Configuration management for VoiceUse."""
 import os
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Dict, Optional, Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -116,6 +116,12 @@ class AppConfig(BaseModel):
     preferred_terminal: str = "cmd" if os.name == "nt" else "gnome-terminal"
     codex_app_name: str = "Codex"  # Window title substring for Codex app
     dry_run: bool = False  # If True, use mock LLM/STT responses (no API calls)
+    aliases: Dict[str, str] = Field(default_factory=lambda: {
+        # Map common nicknames to exact Windows app names / Start Menu entries.
+        # Keys are what the user (or STT) might say; values are what Windows
+        # understands via os.startfile().
+        "comet": "Comet Browser",
+    })
 
 
 class Config(BaseModel):

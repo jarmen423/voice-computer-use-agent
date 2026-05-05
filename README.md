@@ -148,6 +148,10 @@ app:
   preferred_terminal: cmd
   codex_app_name: Codex
   dry_run: false           # overridden by --dry-run CLI flag
+  aliases:                 # spoken name → exact Windows app name
+    comet: "Comet Browser"
+    # vscode: "Visual Studio Code"
+    # edge: "Microsoft Edge"
 
 plugins:
   grok_voice:
@@ -165,6 +169,26 @@ plugins:
 - `api_key: null` means "read from the environment variable."
 - `--dry-run` on the CLI forces `app.dry_run: true` for that run.
 - `plugins.grok_voice.enabled: true` replaces the default STT→LLM→TTS pipeline with the xAI Realtime WebSocket.
+
+## App Aliases
+
+VoiceUse passes your **currently open windows** and **app aliases** to the LLM before every command. This means the LLM knows what's running and can resolve nicknames like "comet" → "Comet Browser".
+
+**Add aliases in `config.yaml`:**
+```yaml
+app:
+  aliases:
+    comet: "Comet Browser"
+    vscode: "Visual Studio Code"
+    edge: "Microsoft Edge"
+```
+
+**How it works:**
+1. You say: *"Open Comet"*
+2. Whisper transcribes: *"Open comment"* (STT error)
+3. Cerebras receives your open windows list + aliases
+4. Cerebras knows "comment" is close to "Comet Browser" and emits `open_app("Comet Browser")`
+5. `find_window` uses fuzzy matching (`difflib`) as a final safety net
 
 ## Grok Voice Plugin (Optional)
 

@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import difflib
 import logging
 import os
 import shlex
@@ -379,23 +380,63 @@ class OSController:
             # In a real app you'd use AX APIs or the Accessibility framework.
         return windows
 
+    def _resolve_app_alias(self, app_name: str) -> str:
+        """Resolve a spoken app name via config aliases.
+
+        Returns the canonical name (the value from the alias map) if a match
+        exists, otherwise returns the original *app_name* unchanged.
+        """
+        aliases = self.config.app.aliases
+        lowered = app_name.lower()
+        if lowered in aliases:
+            return aliases[lowered]
+        return app_name
+
     def find_window(self, app_name: str) -> Optional[WindowInfo]:
         """Find a window whose title contains *app_name* (case-insensitive).
+
+        Resolution order:
+        1. Exact substring match (case-insensitive).
+        2. Alias lookup (e.g. "comet" → "Comet Browser").
+        3. Fuzzy match (handles STT errors like "comment" vs "comet").
 
         Preference: 1) active window, 2) largest area, 3) first match.
         """
         windows = self.list_windows()
         app_name_lower = app_name.lower()
+
+        # 1. Exact substring match
         matches = [w for w in windows if app_name_lower in w.title.lower()]
-        if not matches:
-            return None
-        # Prefer active
-        for w in matches:
-            if w.is_active:
-                return w
-        # Prefer largest
-        matches_sorted = sorted(matches, key=lambda w: w.rect[2] * w.rect[3], reverse=True)
-        return matches_sorted[0]
+        if matches:
+            for w in matches:
+                if w.is_active:
+                    return w
+            return sorted(matches, key=lambda w: w.rect[2] * w.rect[3], reverse=True)[0]
+
+        # 2. Alias lookup
+        canonical = self._resolve_app_alias(app_name)
+        if canonical.lower() != app_name_lower:
+            matches = [w for w in windows if canonical.lower() in w.title.lower()]
+            if matches:
+                for w in matches:
+                    if w.is_active:
+                        return w
+                return sorted(matches, key=lambda w: w.rect[2] * w.rect[3], reverse=True)[0]
+
+        # 3. Fuzzy match — find the window title most similar to app_name
+        all_titles = [w.title for w in windows]
+        close = difflib.get_close_matches(app_name, all_titles, n=1, cutoff=0.6)
+        if close:
+            fuzzy_title = close[0]
+            logger.info("Fuzzy-matched '%s' to window title '%s'", app_name, fuzzy_title)
+            matches = [w for w in windows if w.title == fuzzy_title]
+            if matches:
+                for w in matches:
+                    if w.is_active:
+                        return w
+                return sorted(matches, key=lambda w: w.rect[2] * w.rect[3], reverse=True)[0]
+
+        return None
 
     def focus_window(self, window: WindowInfo) -> CommandResult:
         """Bring *window* to the foreground and click its centre to ensure focus."""
@@ -499,9 +540,18 @@ class OSController:
     # App launching
     # ------------------------------------------------------------------
     def open_app(self, app_name: str) -> CommandResult:
-        """Launch *app_name* or focus it if already running."""
+        """Launch *app_name* or focus it if already running.
+
+        Automatically resolves app aliases (e.g. "comet" → "Comet Browser")
+        before attempting to find or launch.
+        """
+        # Resolve aliases first so "comet" finds "Comet Browser"
+        resolved = self._resolve_app_alias(app_name)
+        if resolved != app_name:
+            logger.info("Resolved app alias '%s' → '%s'", app_name, resolved)
+
         # If already running, just focus
-        existing = self.find_window(app_name)
+        existing = self.find_window(resolved)
         if existing:
             return self.focus_window(existing)
 

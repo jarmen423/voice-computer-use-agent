@@ -426,9 +426,14 @@ class Brain:
                 tool_calls=[mock_call],
             ))
 
-        # 1. Build LLM messages
+        # 1. Build LLM messages with desktop context
+        desktop_context = self._build_desktop_context()
+        dynamic_prompt = _SYSTEM_PROMPT
+        if desktop_context:
+            dynamic_prompt += f"\n\n{desktop_context}"
+
         messages: List[Dict[str, str]] = [
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": dynamic_prompt},
             {"role": "user", "content": raw_text},
         ]
 
@@ -513,6 +518,48 @@ class Brain:
             message=summary or "Done.",
             data={"executed": [tc.tool_name for tc in confirmed_calls]},
         )
+
+    # ------------------------------------------------------------------
+    # Desktop context for LLM
+    # ------------------------------------------------------------------
+
+    def _build_desktop_context(self) -> str:
+        """Snapshot open windows and app aliases into a prompt fragment.
+
+        This gives the LLM awareness of what's actually running and what
+        apps are available, so it can resolve ambiguous names like
+        'comment browser' → 'Comet Browser' or 'code' → 'Visual Studio Code'.
+        """
+        lines: List[str] = []
+
+        # Open windows
+        try:
+            windows = self.os_controller.list_windows()
+            if windows:
+                titles = [w.title for w in windows[:15]]  # cap to avoid token bloat
+                lines.append("Currently open windows:")
+                for t in titles:
+                    lines.append(f"  - {t}")
+            else:
+                lines.append("No visible windows detected.")
+        except Exception as exc:
+            logger.debug("Could not list windows for context: %s", exc)
+            lines.append("(Window list unavailable)")
+
+        # App aliases
+        aliases = self.config.app.aliases
+        if aliases:
+            lines.append("Known app aliases (nickname → real name):")
+            for nick, real in aliases.items():
+                lines.append(f"  - {nick} → {real}")
+
+        # Preferred browser hint
+        lines.append(
+            f"Preferred browser: {self.config.app.preferred_browser}. "
+            "Use browser_search for web queries unless the user names a different browser."
+        )
+
+        return "\n".join(lines)
 
     # ------------------------------------------------------------------
     # Dispatch
