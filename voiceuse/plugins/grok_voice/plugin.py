@@ -19,99 +19,10 @@ from voiceuse.safety import SafetyGuard
 from voiceuse.plugins.base import PluginBase
 from voiceuse.plugins.grok_voice.client import XAIRealtimeClient
 from voiceuse.plugins.grok_voice.audio_streamer import GrokAudioStreamer
+from voiceuse.models import ToolCall
+from voiceuse.tool_registry import TOOL_SCHEMAS, dispatch_tool_call
 
 logger = logging.getLogger("voiceuse.grok_voice.plugin")
-
-# Tool schemas exposed to xAI Realtime session (OpenAI-compatible)
-_TOOL_SCHEMAS: list[Dict[str, Any]] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "open_app",
-            "description": "Launch an application or bring it to foreground if already running.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "app_name": {"type": "string", "description": "Name of the application, e.g. 'Codex', 'Chrome'."}
-                },
-                "required": ["app_name"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "focus_window",
-            "description": "Find a window by title/substring and bring it to foreground.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "app_name": {"type": "string", "description": "Window title substring or application name."}
-                },
-                "required": ["app_name"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "click_element",
-            "description": "Use computer vision to find an element described by the user and click it.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "description": {"type": "string", "description": "Natural-language description of the element to click."},
-                    "app_name": {"type": "string", "description": "Optional app/window context to narrow the search."},
-                },
-                "required": ["description"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "type_text",
-            "description": "Type text into the currently focused window or a specified app's text input.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "text": {"type": "string", "description": "Text to type."},
-                    "app_name": {"type": "string", "description": "Optional target app name."},
-                },
-                "required": ["text"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "browser_search",
-            "description": "Open browser, focus address bar, type query/URL, submit.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "browser": {"type": "string", "description": "Browser name (optional, uses default if omitted)."},
-                    "query": {"type": "string", "description": "Search query or URL to type."},
-                },
-                "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "execute_system",
-            "description": "Execute a safe system command. Dangerous commands are blocked by an allow-list.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "command": {"type": "string", "description": "System command to execute."}
-                },
-                "required": ["command"],
-            },
-        },
-    },
-]
 
 
 class GrokVoicePlugin(PluginBase):
@@ -176,7 +87,7 @@ class GrokVoicePlugin(PluginBase):
             "turn_detection": {
                 "type": gcfg.turn_detection_type,
             },
-            "tools": _TOOL_SCHEMAS,
+            "tools": TOOL_SCHEMAS,
             "tool_choice": "auto",
         }
 
@@ -320,6 +231,9 @@ class GrokVoicePlugin(PluginBase):
             tc = ToolCall(tool_name=name, parameters=params)
             safety_result = self.safety_guard.check_command(tc)
             if not safety_result.is_safe:
+                if self.tts_manager is None or self.get_confirmation_text is None:
+                    logger.warning("Cannot confirm %s because confirmation services are unavailable.", name)
+                    return
                 confirmed = await self.safety_guard.confirm(
                     tts_manager=self.tts_manager,
                     get_confirmation_text=self.get_confirmation_text,
@@ -351,46 +265,13 @@ class GrokVoicePlugin(PluginBase):
             await self._client.create_response()
 
     async def _execute_tool(self, name: str, params: Dict[str, Any]) -> str:
-        """Execute a single tool against OSController or VisionBridge."""
+        """Execute a single tool through the shared VoiceUse tool registry."""
         if self.os_controller is None or self.vision_bridge is None:
             raise RuntimeError("Subsystems not available for tool execution.")
 
-        # OSController tools
-        if name in {"open_app", "focus_window", "type_text", "browser_search", "execute_system", "find_chat"}:
-            if name == "focus_window":
-                window = self.os_controller.find_window(params.get("app_name", ""))
-                if window is None:
-                    return f"No window found matching '{params.get('app_name')}'"
-                result = self.os_controller.focus_window(window)
-                return result.message if hasattr(result, "message") else str(result)
-
-            if name == "type_text":
-                text = params.get("text", "")
-                app_name = params.get("app_name")
-                if app_name:
-                    window = self.os_controller.find_window(app_name)
-                    if window is not None:
-                        focus_res = self.os_controller.focus_window(window)
-                        if hasattr(focus_res, "success") and not focus_res.success:
-                            return f"Failed to focus {app_name}: {focus_res.message}"
-                result = self.os_controller.type_text(text)
-                return f"Typed text into {'app ' + app_name if app_name else 'current focus'}."
-
-            method = getattr(self.os_controller, name, None)
-            if method is None:
-                return f"Unknown tool: {name}"
-            if asyncio.iscoroutinefunction(method):
-                result = await method(**params)
-            else:
-                result = method(**params)
-            return result.message if hasattr(result, "message") else str(result)
-
-        # VisionBridge tools
-        if name == "click_element":
-            result = await self.vision_bridge.find_and_click(
-                description=params.get("description", ""),
-                app_name=params.get("app_name"),
-            )
-            return result.message if hasattr(result, "message") else str(result)
-
-        return f"Tool '{name}' is not implemented."
+        result = await dispatch_tool_call(
+            tool_call=ToolCall(tool_name=name, parameters=params),
+            os_controller=self.os_controller,
+            vision_bridge=self.vision_bridge,
+        )
+        return result.message

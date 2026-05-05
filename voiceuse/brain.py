@@ -5,14 +5,13 @@ tool calls, runs safety checks, dispatches execution to OS / vision
 modules, and returns a structured result.
 """
 
-import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from voiceuse.config import Config, LLMConfig
-from voiceuse.models import CommandResult, ToolCall, VoiceCommand
+from voiceuse.models import CommandResult, ToolCall
 
 try:
     import groq
@@ -27,185 +26,10 @@ except ImportError:
 from voiceuse.safety import SafetyGuard, SafetyCheckResult
 from voiceuse.os_controller import OSController
 from voiceuse.vision_bridge import VisionBridge
+from voiceuse.tool_registry import TOOL_SCHEMAS, dispatch_tool_call
 
 logger = logging.getLogger("voiceuse.brain")
 
-
-# ---------------------------------------------------------------------------
-# Tool schemas (OpenAI-compatible function definitions)
-# ---------------------------------------------------------------------------
-
-_TOOL_SCHEMAS: List[Dict[str, Any]] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "open_app",
-            "description": "Launch an application or bring it to foreground if already running.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "app_name": {
-                        "type": "string",
-                        "description": "Name of the application, e.g. 'Codex', 'Chrome'.",
-                    }
-                },
-                "required": ["app_name"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "focus_window",
-            "description": (
-                "Find a window by title/substring, bring it to foreground, "
-                "and if it has an obvious main text input, click it."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "app_name": {
-                        "type": "string",
-                        "description": "Window title substring or application name.",
-                    }
-                },
-                "required": ["app_name"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "split_view_apps",
-            "description": "Open N instances of an app side-by-side.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "app_name": {
-                        "type": "string",
-                        "description": "Name of the application to open.",
-                    },
-                    "count": {
-                        "type": "integer",
-                        "description": "Number of instances (default 2).",
-                        "default": 2,
-                    },
-                },
-                "required": ["app_name"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "browser_search",
-            "description": "Open browser, focus address bar, type query/URL, submit.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "browser": {
-                        "type": "string",
-                        "description": "Browser name (optional, uses default if omitted).",
-                    },
-                    "query": {
-                        "type": "string",
-                        "description": "Search query or URL to type.",
-                    },
-                },
-                "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "click_element",
-            "description": (
-                "Use computer vision to find an element described by the user "
-                "and click it. Only use if the user explicitly says 'click ...'."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "description": {
-                        "type": "string",
-                        "description": "Natural-language description of the element to click.",
-                    },
-                    "app_name": {
-                        "type": "string",
-                        "description": "Optional app/window context to narrow the search.",
-                    },
-                },
-                "required": ["description"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "type_text",
-            "description": (
-                "Type text into the currently focused window or a specified app's text input."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "text": {
-                        "type": "string",
-                        "description": "Text to type.",
-                    },
-                    "app_name": {
-                        "type": "string",
-                        "description": "Optional target app name.",
-                    },
-                },
-                "required": ["text"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "find_chat",
-            "description": (
-                "Find a specific chat/conversation in an app's sidebar by label and open it."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "app_name": {
-                        "type": "string",
-                        "description": "Application name, e.g. 'Discord', 'Slack'.",
-                    },
-                    "chat_label": {
-                        "type": "string",
-                        "description": "Label / title of the chat to open.",
-                    },
-                },
-                "required": ["app_name", "chat_label"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "execute_system",
-            "description": (
-                "Execute a raw system command string. HIGHLY DANGEROUS, requires confirmation."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "command": {
-                        "type": "string",
-                        "description": "Raw shell / terminal command to execute.",
-                    }
-                },
-                "required": ["command"],
-            },
-        },
-    },
-]
 
 _SYSTEM_PROMPT = (
     "You are the brain of VoiceUse, a desktop voice-controlled assistant. "
@@ -297,7 +121,7 @@ class _LLMClient:
 
     async def chat(
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict[str, Any]],
         tools: Optional[List[Dict[str, Any]]] = None,
         temperature: float = 0.1,
         max_tokens: int = 1024,
@@ -364,11 +188,13 @@ class _LLMClient:
             try:
                 fn_name = getattr(getattr(tc, "function", tc), "name", None)
                 fn_args = getattr(getattr(tc, "function", tc), "arguments", "{}")
+                call_id = getattr(tc, "id", None)
                 if fn_name:
                     parsed_tools.append(
                         ToolCall(
                             tool_name=fn_name,
                             parameters=json.loads(fn_args) if isinstance(fn_args, str) else fn_args,
+                            call_id=call_id,
                         )
                     )
             except Exception as exc:
@@ -408,6 +234,8 @@ class Brain:
         self.tts_manager = tts_manager
         self.get_confirmation_text = get_confirmation_text
         self.llm = _LLMClient(config.llm)
+        self._conversation_history: List[Dict[str, Any]] = []
+        self._max_history_messages = 30
 
     # ------------------------------------------------------------------
     # Public API
@@ -421,10 +249,13 @@ class Brain:
         if self.config.app.dry_run:
             logger.info("[dry-run] Returning mock plan for: %r", raw_text)
             mock_call = ToolCall(tool_name="open_app", parameters={"app_name": "chrome"})
-            return await self._execute_plan(raw_text, LLMResponse(
+            plan = LLMResponse(
                 content="Dry-run mock response.",
                 tool_calls=[mock_call],
-            ))
+            )
+            result = await self._execute_plan(raw_text, plan)
+            self._record_turn(raw_text, plan, result)
+            return result
 
         # 1. Build LLM messages with desktop context
         desktop_context = self._build_desktop_context()
@@ -432,8 +263,9 @@ class Brain:
         if desktop_context:
             dynamic_prompt += f"\n\n{desktop_context}"
 
-        messages: List[Dict[str, str]] = [
+        messages: List[Dict[str, Any]] = [
             {"role": "system", "content": dynamic_prompt},
+            *self._conversation_history,
             {"role": "user", "content": raw_text},
         ]
 
@@ -441,7 +273,7 @@ class Brain:
         try:
             plan = await self.llm.chat(
                 messages=messages,
-                tools=_TOOL_SCHEMAS,
+                tools=TOOL_SCHEMAS,
                 temperature=self.config.llm.temperature,
                 max_tokens=self.config.llm.max_tokens,
             )
@@ -458,7 +290,9 @@ class Brain:
                 message=f"Unexpected error while planning: {exc}",
             )
 
-        return await self._execute_plan(raw_text, plan)
+        result = await self._execute_plan(raw_text, plan)
+        self._record_turn(raw_text, plan, result)
+        return result
 
     async def _execute_plan(self, raw_text: str, plan: LLMResponse) -> CommandResult:
         """Safety-screen and dispatch a planned set of tool calls."""
@@ -520,6 +354,88 @@ class Brain:
         )
 
     # ------------------------------------------------------------------
+    # Conversation memory
+    # ------------------------------------------------------------------
+
+    def _record_turn(
+        self,
+        raw_text: str,
+        plan: LLMResponse,
+        result: CommandResult,
+    ) -> None:
+        """Persist a compact rolling chat history for follow-up voice turns.
+
+        Voice commands are naturally contextual: a user often says "open
+        Chrome" and then follows with "type hello in the search bar."  The LLM
+        cannot resolve that second turn if every request is a fresh two-message
+        conversation.  This buffer stores the user's utterance, the model's
+        tool plan, and the execution result so future turns can refer back to
+        what actually happened on the computer.
+
+        Args:
+            raw_text: The transcribed user utterance.
+            plan: The model response used for this turn.
+            result: The local execution result after safety and dispatch.
+        """
+        self._conversation_history.append({"role": "user", "content": raw_text})
+
+        if plan.tool_calls:
+            assistant_tool_calls: List[Dict[str, Any]] = []
+            for index, tool_call in enumerate(plan.tool_calls):
+                if not tool_call.call_id:
+                    tool_call.call_id = f"voiceuse_call_{len(self._conversation_history)}_{index}"
+                assistant_tool_calls.append(
+                    {
+                        "id": tool_call.call_id,
+                        "type": "function",
+                        "function": {
+                            "name": tool_call.tool_name,
+                            "arguments": json.dumps(tool_call.parameters),
+                        },
+                    }
+                )
+
+            self._conversation_history.append(
+                {
+                    "role": "assistant",
+                    "content": plan.content or "I will use local tools to complete that.",
+                    "tool_calls": assistant_tool_calls,
+                }
+            )
+            for tool_call in plan.tool_calls:
+                self._conversation_history.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call.call_id,
+                        "name": tool_call.tool_name,
+                        "content": json.dumps(
+                            {
+                                "success": result.success,
+                                "message": result.message,
+                                "data": result.data or {},
+                            }
+                        ),
+                    }
+                )
+
+            self._conversation_history.append(
+                {
+                    "role": "assistant",
+                    "content": f"Result: {result.message}",
+                }
+            )
+        else:
+            self._conversation_history.append(
+                {
+                    "role": "assistant",
+                    "content": plan.content or result.message,
+                }
+            )
+
+        if len(self._conversation_history) > self._max_history_messages:
+            self._conversation_history = self._conversation_history[-self._max_history_messages :]
+
+    # ------------------------------------------------------------------
     # Desktop context for LLM
     # ------------------------------------------------------------------
 
@@ -566,82 +482,13 @@ class Brain:
     # ------------------------------------------------------------------
 
     async def _dispatch_tool_call(self, tc: ToolCall) -> str:
-        """Route a single ToolCall to the correct subsystem and execute it."""
-        name = tc.tool_name
-        params = tc.parameters
-        logger.debug("Dispatching %s with params %s", name, params)
-
-        # ----- OSController tools -----
-        if name in _OS_CONTROLLER_TOOLS:
-            # Adapter: focus_window expects WindowInfo, not app_name string
-            if name == "focus_window":
-                app_name = params.get("app_name", "")
-                window = self.os_controller.find_window(app_name)
-                if window is None:
-                    raise RuntimeError(f"No window found matching '{app_name}'")
-                result = self.os_controller.focus_window(window)
-                if isinstance(result, CommandResult):
-                    return result.message
-                return str(result)
-
-            # Adapter: type_text may include optional app_name — focus first if given
-            if name == "type_text":
-                text = params.get("text", "")
-                app_name = params.get("app_name")
-                if app_name:
-                    window = self.os_controller.find_window(app_name)
-                    if window is not None:
-                        focus_res = self.os_controller.focus_window(window)
-                        if isinstance(focus_res, CommandResult) and not focus_res.success:
-                            return f"Failed to focus {app_name}: {focus_res.message}"
-                    else:
-                        logger.warning("Window '%s' not found for type_text; typing into current focus.", app_name)
-                result = self.os_controller.type_text(text)
-                if isinstance(result, CommandResult):
-                    return result.message
-                return f"Typed text into {'app ' + app_name if app_name else 'current focus'}."
-
-
-
-            # Direct dispatch for everything else
-            method = getattr(self.os_controller, name, None)
-            if method is None:
-                raise RuntimeError(f"OSController does not implement '{name}'")
-
-            if asyncio.iscoroutinefunction(method):
-                result = await method(**params)
-            else:
-                result = method(**params)
-
-            if isinstance(result, CommandResult):
-                return result.message
-            return str(result)
-
-        # ----- VisionBridge tools -----
-        if name in _VISION_TOOLS:
-            # Adapter: tool name is click_element, VisionBridge method is find_and_click
-            if name == "click_element":
-                description = params.get("description", "")
-                app_name = params.get("app_name")
-                result = await self.vision_bridge.find_and_click(
-                    description=description,
-                    app_name=app_name,
-                )
-                if isinstance(result, CommandResult):
-                    return result.message
-                return str(result)
-
-            method = getattr(self.vision_bridge, name, None)
-            if method is None:
-                raise RuntimeError(f"VisionBridge does not implement '{name}'")
-
-            if asyncio.iscoroutinefunction(method):
-                result = await method(**params)
-            else:
-                result = method(**params)
-
-            if isinstance(result, CommandResult):
-                return result.message
-            return str(result)
-
-        raise RuntimeError(f"Unknown tool '{name}' — no dispatcher configured.")
+        """Route a single ToolCall through the shared tool registry."""
+        logger.debug("Dispatching %s with params %s", tc.tool_name, tc.parameters)
+        result = await dispatch_tool_call(
+            tool_call=tc,
+            os_controller=self.os_controller,
+            vision_bridge=self.vision_bridge,
+        )
+        if not result.success:
+            raise RuntimeError(result.message)
+        return result.message

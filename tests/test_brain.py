@@ -104,6 +104,44 @@ class TestProcessCommand:
         mock_os_controller.open_app.assert_called_once_with(app_name="chrome")
 
     @pytest.mark.asyncio
+    async def test_process_command_includes_prior_turn_history(
+        self, brain: Brain, mock_os_controller: MagicMock
+    ) -> None:
+        """Follow-up voice turns should include prior tool results in LLM context."""
+        chat = AsyncMock(
+            side_effect=[
+                LLMResponse(
+                    tool_calls=[
+                        ToolCall(
+                            tool_name="open_app",
+                            parameters={"app_name": "chrome"},
+                            call_id="call_open_chrome",
+                        )
+                    ]
+                ),
+                LLMResponse(
+                    tool_calls=[
+                        ToolCall(
+                            tool_name="type_text",
+                            parameters={"text": "hello", "app_name": "chrome"},
+                            call_id="call_type_hello",
+                        )
+                    ]
+                ),
+            ]
+        )
+        with patch.object(brain.llm, "chat", chat):
+            await brain.process_command("open chrome")
+            await brain.process_command("type hello in the search bar")
+
+        second_messages = chat.await_args_list[1].kwargs["messages"]
+        assert any(msg.get("role") == "tool" for msg in second_messages)
+        assert any(
+            msg.get("role") == "assistant" and "Result: opened" in msg.get("content", "")
+            for msg in second_messages
+        )
+
+    @pytest.mark.asyncio
     async def test_dispatch_click_element(
         self, brain: Brain, mock_vision_bridge: MagicMock
     ) -> None:

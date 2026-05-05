@@ -9,8 +9,7 @@ import asyncio
 import base64
 import json
 import logging
-import traceback
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 import websockets
 
@@ -76,12 +75,9 @@ class XAIRealtimeClient:
         self._connected = True
         logger.info("WebSocket connected.")
 
-        # Start background loops
+        # Wait for session.created before the background receive loop starts.
+        # Only one coroutine may call recv() on a websocket at a time.
         self._stop_event.clear()
-        self._receive_task = asyncio.create_task(self._receive_loop(), name="xai-receive")
-        self._send_task = asyncio.create_task(self._send_loop(), name="xai-send")
-
-        # Wait for session.created before sending session.update
         try:
             await asyncio.wait_for(self._wait_for_event("session.created"), timeout=10.0)
         except asyncio.TimeoutError:
@@ -91,6 +87,10 @@ class XAIRealtimeClient:
         # Configure session
         await self._send_event("session.update", {"session": self.session_config})
         logger.info("Session update sent.")
+
+        # Start background loops after the synchronous handshake has finished.
+        self._receive_task = asyncio.create_task(self._receive_loop(), name="xai-receive")
+        self._send_task = asyncio.create_task(self._send_loop(), name="xai-send")
 
     async def disconnect(self) -> None:
         """Close the WebSocket and cancel background tasks."""

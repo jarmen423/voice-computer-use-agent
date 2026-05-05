@@ -1,6 +1,6 @@
 """Shared data models for VoiceUse."""
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Literal
+from typing import Any, Dict, List, Optional
 from enum import Enum
 
 
@@ -35,6 +35,7 @@ class ToolCall:
     """Represents a tool call from the LLM."""
     tool_name: str
     parameters: Dict[str, Any]
+    call_id: Optional[str] = None
 
 
 @dataclass

@@ -13,14 +13,12 @@ import argparse
 import asyncio
 import logging
 import logging.handlers
-import os
 import signal
 import sys
 from pathlib import Path
 from typing import Any, Optional
 
 from voiceuse.config import Config
-from voiceuse.models import CommandResult
 
 # Subsystems (assumed to exist in the voiceuse package)
 from voiceuse.input_manager import InputManager
@@ -30,7 +28,7 @@ from voiceuse.vision_bridge import VisionBridge
 from voiceuse.safety import SafetyGuard
 from voiceuse.brain import Brain, LLMError
 from voiceuse.health import check_installation, print_report
-from voiceuse.plugins import get_plugin, list_plugins
+from voiceuse.plugins import get_plugin
 
 # Optional Groq SDK for Whisper transcription
 # (also used inside InputManager; imported here only for fast-fail check)
@@ -186,7 +184,7 @@ async def _pipeline(audio_bytes: bytes) -> None:
         logger.error("Brain LLM error: %s", exc)
         await _speak("I'm having trouble reaching my language model right now.")
         return
-    except Exception as exc:
+    except Exception:
         logger.exception("Brain processing error")
         await _speak("Something went wrong while trying to help.")
         return
@@ -212,7 +210,8 @@ async def _speak(text: str) -> None:
 async def _get_confirmation_text() -> str:
     """Record a short utterance and transcribe it (used by SafetyGuard)."""
     if _input_manager is None:
-        raise RuntimeError("InputManager not available for confirmation capture.")
+        logger.warning("InputManager not available for confirmation capture.")
+        return ""
     return await _input_manager.capture_single_utterance()
 
 
@@ -236,6 +235,8 @@ async def _init_subsystems(cfg: Config) -> None:
         os_controller=_os_controller,
     )
     _safety_guard = SafetyGuard(config=cfg)
+    _tts_manager = TTSManager(config=cfg)
+    await _tts_manager.start()
 
     # Check if a plugin is enabled and should replace the default pipeline
     plugin = get_plugin(cfg)
@@ -260,9 +261,6 @@ async def _init_subsystems(cfg: Config) -> None:
         on_hotkey_stop=_on_hotkey_release,
         on_wake_word=_on_wake_word_detected,
     )
-
-    _tts_manager = TTSManager(config=cfg)
-    await _tts_manager.start()
 
     _brain = Brain(
         config=cfg,
