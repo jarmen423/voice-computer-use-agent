@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from voiceuse import os_services
 from voiceuse.models import WindowInfo
-from voiceuse.os_services import InputSimulator, ScreenshotService, SystemCommandExecutor
+from voiceuse.os_services import InputSimulator, ScreenshotService, SystemCommandExecutor, WindowResolver
 
 
 class FakePyAutoGUI:
@@ -134,3 +134,29 @@ def test_screenshot_service_captures_window_region(monkeypatch, tmp_path) -> Non
     assert result == output_path
     assert fake_mss.grabbed_regions == [{"left": 10, "top": 20, "width": 300, "height": 200}]
     assert writes == [output_path]
+
+
+def test_window_resolver_prefers_active_direct_match() -> None:
+    """Direct title matches should prefer the active app window."""
+    windows = [
+        WindowInfo(title="Chrome - background", pid=1, rect=(0, 0, 1200, 800), monitor_index=1),
+        WindowInfo(title="Chrome - active", pid=2, rect=(0, 0, 600, 400), monitor_index=1, is_active=True),
+    ]
+    resolver = WindowResolver(aliases={}, list_windows=lambda: windows)
+
+    result = resolver.find_window("chrome")
+
+    assert result is windows[1]
+
+
+def test_window_resolver_uses_alias_and_largest_fallback() -> None:
+    """Aliases should resolve spoken names and prefer the largest matching window."""
+    windows = [
+        WindowInfo(title="Comet Browser small", pid=1, rect=(0, 0, 300, 300), monitor_index=1),
+        WindowInfo(title="Comet Browser large", pid=2, rect=(0, 0, 1200, 900), monitor_index=1),
+    ]
+    resolver = WindowResolver(aliases={"comet": "Comet Browser"}, list_windows=lambda: windows)
+
+    result = resolver.find_window("comet")
+
+    assert result is windows[1]

@@ -1,6 +1,5 @@
 """OS Controller for VoiceUse — cross-platform window management, screenshots, and input."""
 
-import difflib
 import logging
 import os
 import subprocess
@@ -20,7 +19,7 @@ except ImportError:
 
 from voiceuse.config import Config
 from voiceuse.models import CommandResult, MonitorInfo, WindowInfo
-from voiceuse.os_services import InputSimulator, ScreenshotService, SystemCommandExecutor
+from voiceuse.os_services import InputSimulator, ScreenshotService, SystemCommandExecutor, WindowResolver
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +68,7 @@ class OSController:
         self.input_simulator = InputSimulator(pyautogui)
         self.screenshot_service = ScreenshotService(MSS)
         self.command_executor = SystemCommandExecutor()
+        self.window_resolver = WindowResolver(config.app.aliases, self.list_windows)
         _check_platform_deps()
         if pyautogui is None:
             logger.error("pyautogui is not installed; OS control will fail.")
@@ -398,11 +398,7 @@ class OSController:
         Returns the canonical name (the value from the alias map) if a match
         exists, otherwise returns the original *app_name* unchanged.
         """
-        aliases = self.config.app.aliases
-        lowered = app_name.lower()
-        if lowered in aliases:
-            return aliases[lowered]
-        return app_name
+        return self.window_resolver.resolve_app_alias(app_name)
 
     def find_window(self, app_name: str) -> Optional[WindowInfo]:
         """Find a window whose title contains *app_name* (case-insensitive).
@@ -414,41 +410,7 @@ class OSController:
 
         Preference: 1) active window, 2) largest area, 3) first match.
         """
-        windows = self.list_windows()
-        app_name_lower = app_name.lower()
-
-        # 1. Exact substring match
-        matches = [w for w in windows if app_name_lower in w.title.lower()]
-        if matches:
-            for w in matches:
-                if w.is_active:
-                    return w
-            return sorted(matches, key=lambda w: w.rect[2] * w.rect[3], reverse=True)[0]
-
-        # 2. Alias lookup
-        canonical = self._resolve_app_alias(app_name)
-        if canonical.lower() != app_name_lower:
-            matches = [w for w in windows if canonical.lower() in w.title.lower()]
-            if matches:
-                for w in matches:
-                    if w.is_active:
-                        return w
-                return sorted(matches, key=lambda w: w.rect[2] * w.rect[3], reverse=True)[0]
-
-        # 3. Fuzzy match — find the window title most similar to app_name
-        all_titles = [w.title for w in windows]
-        close = difflib.get_close_matches(app_name, all_titles, n=1, cutoff=0.6)
-        if close:
-            fuzzy_title = close[0]
-            logger.info("Fuzzy-matched '%s' to window title '%s'", app_name, fuzzy_title)
-            matches = [w for w in windows if w.title == fuzzy_title]
-            if matches:
-                for w in matches:
-                    if w.is_active:
-                        return w
-                return sorted(matches, key=lambda w: w.rect[2] * w.rect[3], reverse=True)[0]
-
-        return None
+        return self.window_resolver.find_window(app_name)
 
     def focus_window(self, window: WindowInfo) -> CommandResult:
         """Bring *window* to the foreground and click its centre to ensure focus."""
@@ -542,7 +504,7 @@ class OSController:
             time.sleep(0.3)
             x = window.rect[0] + window.rect[2] // 2
             y = window.rect[1] + window.rect[3] // 2
-            pyautogui.click(x, y)
+            self.input_simulator.click(x, y)
             return CommandResult(success=True, message=f"Focused window: {window.title}")
         except Exception as exc:
             logger.error("focus_window failed: %s", exc)

@@ -13,7 +13,8 @@ import logging
 import os
 import shlex
 import subprocess
-from typing import Any, Optional
+import difflib
+from typing import Any, Callable, Optional
 
 from voiceuse.models import CommandResult, WindowInfo
 
@@ -204,3 +205,58 @@ class ScreenshotService:
         if self._mss_factory is None:
             raise RuntimeError("mss is not installed; cannot take screenshots.")
         return self._mss_factory
+
+
+class WindowResolver:
+    """Resolve spoken app/window names against current desktop windows."""
+
+    def __init__(
+        self,
+        aliases: dict[str, str],
+        list_windows: Callable[[], list[WindowInfo]],
+    ) -> None:
+        self._aliases = aliases
+        self._list_windows = list_windows
+
+    def resolve_app_alias(self, app_name: str) -> str:
+        """Return the canonical configured app name for a spoken alias."""
+        return self._aliases.get(app_name.lower(), app_name)
+
+    def find_window(self, app_name: str) -> Optional[WindowInfo]:
+        """Find the best matching window for a spoken app name.
+
+        Matching proceeds from least surprising to most forgiving: direct
+        substring, configured alias, then fuzzy title match. Active windows are
+        preferred, followed by larger windows because they are usually the main
+        app surface rather than popups or utility panels.
+        """
+        windows = self._list_windows()
+        app_name_lower = app_name.lower()
+
+        direct = [w for w in windows if app_name_lower in w.title.lower()]
+        if direct:
+            return self._best_window(direct)
+
+        canonical = self.resolve_app_alias(app_name)
+        if canonical.lower() != app_name_lower:
+            alias_matches = [w for w in windows if canonical.lower() in w.title.lower()]
+            if alias_matches:
+                return self._best_window(alias_matches)
+
+        close = difflib.get_close_matches(app_name, [w.title for w in windows], n=1, cutoff=0.6)
+        if close:
+            fuzzy_title = close[0]
+            logger.info("Fuzzy-matched '%s' to window title '%s'", app_name, fuzzy_title)
+            fuzzy_matches = [w for w in windows if w.title == fuzzy_title]
+            if fuzzy_matches:
+                return self._best_window(fuzzy_matches)
+
+        return None
+
+    @staticmethod
+    def _best_window(windows: list[WindowInfo]) -> WindowInfo:
+        """Prefer active windows, then largest visible area."""
+        for window in windows:
+            if window.is_active:
+                return window
+        return sorted(windows, key=lambda w: w.rect[2] * w.rect[3], reverse=True)[0]
