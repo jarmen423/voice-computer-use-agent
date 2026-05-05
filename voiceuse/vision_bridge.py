@@ -5,6 +5,7 @@ import base64
 import json
 import logging
 import os
+import re
 import shlex
 import subprocess
 import tempfile
@@ -155,32 +156,42 @@ class VisionBridge:
     # Codex provider
     # ------------------------------------------------------------------
     async def _call_codex(self, description: str, screenshot_path: str) -> Dict[str, Any]:
-        """Call the local Codex CLI with the screenshot and description."""
-        quoted_desc = shlex.quote(description)
+        """Call the local Codex CLI with the screenshot and description.
+
+        Codex CLI is invoked in non-interactive ``exec`` mode with the screenshot
+        attached via ``-i``.  The prompt explicitly requests a JSON object with
+        relative coordinates.  Because Codex does not guarantee machine-readable
+        output, we aggressively extract the first JSON object from its response.
+        """
         prompt = (
-            f"Find the UI element described as {quoted_desc}. "
-            "Return ONLY a JSON object with keys: "
-            "found (bool), x (int), y (int), confidence (float), reasoning (str). "
-            "Coordinates must be relative to the screenshot."
+            "You are a computer-vision helper. "
+            f"Find the UI element described as: {description}\n\n"
+            "Return ONLY a JSON object with exactly these keys:\n"
+            "  found (bool)\n"
+            "  x (int) — horizontal pixel coordinate relative to the screenshot\n"
+            "  y (int) — vertical pixel coordinate relative to the screenshot\n"
+            "  confidence (float 0.0-1.0)\n"
+            "  reasoning (short string)\n\n"
+            "No markdown, no code fences, no extra text."
         )
-        # Build command: codex exec -i <image> --json "<prompt>"
         cmd = [
             "codex",
             "exec",
             "-i", screenshot_path,
-            "--json",
+            "--full-auto",
+            "--ask-for-approval", "never",
             prompt,
         ]
-        logger.debug("Running Codex CLI: %s", " ".join(cmd))
+        logger.info("Running Codex CLI: %s", " ".join(cmd))
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=60.0)
         except asyncio.TimeoutError:
-            logger.error("Codex CLI timed out after 30 s")
+            logger.error("Codex CLI timed out after 60 s")
             if proc:
                 try:
                     proc.kill()
@@ -192,19 +203,20 @@ class VisionBridge:
             logger.error("Codex CLI spawn error: %s", exc)
             return {"success": False, "message": f"Codex CLI error: {exc}"}
 
+        out = stdout.decode().strip() if stdout else ""
+        err = stderr.decode().strip() if stderr else ""
+
         if proc.returncode != 0:
-            err = stderr.decode().strip() if stderr else ""
-            logger.error("Codex CLI exited %d: %s", proc.returncode, err)
+            logger.error("Codex CLI exited %d: stderr=%s stdout=%s", proc.returncode, err[:500], out[:500])
             return {"success": False, "message": f"Codex CLI failed (code {proc.returncode}): {err}"}
 
-        out = stdout.decode().strip() if stdout else ""
-        # Codex may return markdown code fences; strip them
-        out = self._strip_code_fences(out)
-        try:
-            data = json.loads(out)
-        except json.JSONDecodeError as exc:
-            logger.error("Failed to parse Codex JSON: %s | raw: %s", exc, out[:500])
-            return {"success": False, "message": f"Invalid JSON from Codex: {exc}"}
+        logger.debug("Codex CLI stdout: %s", out[:1000])
+
+        # Aggressively extract the first JSON object from the output
+        data = self._extract_json_from_text(out)
+        if data is None:
+            logger.error("Could not extract JSON from Codex output. Raw: %s", out[:1000])
+            return {"success": False, "message": f"Could not parse Codex output: {out[:500]}"}
 
         return {
             "success": True,
@@ -321,6 +333,43 @@ class VisionBridge:
     # ------------------------------------------------------------------
     # Utilities
     # ------------------------------------------------------------------
+    @staticmethod
+    def _extract_json_from_text(text: str) -> Optional[Dict[str, Any]]:
+        """Aggressively extract the first JSON object from mixed text/markdown.
+
+        Tries (in order):
+        1. Parse the whole string as JSON.
+        2. Parse after stripping markdown fences.
+        3. Use regex to grab the first ``{...}`` block and parse it.
+        """
+        text = text.strip()
+        if not text:
+            return None
+
+        # 1. Whole string
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # 2. Strip fences
+        cleaned = VisionBridge._strip_code_fences(text)
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            pass
+
+        # 3. Regex grab first { ... } block (naïve but effective for simple objects)
+        import re
+        match = re.search(r"\{[\s\S]*?\}", text)
+        if match:
+            try:
+                return json.loads(match.group(0))
+            except json.JSONDecodeError:
+                pass
+
+        return None
+
     @staticmethod
     def _strip_code_fences(text: str) -> str:
         """Remove markdown code fences from a string."""

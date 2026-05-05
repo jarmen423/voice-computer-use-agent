@@ -406,25 +406,64 @@ class OSController:
                 hwnd = window.hwnd
                 if hwnd is None:
                     return CommandResult(success=False, message="Window has no native handle.")
+
                 # Restore if minimised
                 if _win32gui.IsIconic(hwnd):
                     _win32gui.ShowWindow(hwnd, _win32con.SW_RESTORE)
-                # Attach input thread so SetForegroundWindow succeeds across processes
+
+                # --- Multi-attempt Windows focus strategy ---
+                # Windows restricts which processes can steal foreground.
+                # We try increasingly aggressive techniques.
+                focused = False
+                last_err: Exception = RuntimeError("unknown")
+
+                # Attempt 1: AttachThreadInput + SetForegroundWindow
                 try:
                     fg_hwnd = _win32gui.GetForegroundWindow()
                     fg_thread = _win32gui.GetWindowThreadProcessId(fg_hwnd, None)
                     target_thread = _win32gui.GetWindowThreadProcessId(hwnd, None)
                     if fg_thread != target_thread:
-                        # Attach threads, set foreground, detach
                         import ctypes
                         ctypes.windll.user32.AttachThreadInput(fg_thread, target_thread, True)
-                        _win32gui.SetForegroundWindow(hwnd)
+                        focused = bool(_win32gui.SetForegroundWindow(hwnd))
                         ctypes.windll.user32.AttachThreadInput(fg_thread, target_thread, False)
                     else:
-                        _win32gui.SetForegroundWindow(hwnd)
-                except Exception:
-                    # Fallback: just try SetForegroundWindow directly
-                    _win32gui.SetForegroundWindow(hwnd)
+                        focused = bool(_win32gui.SetForegroundWindow(hwnd))
+                except Exception as exc:
+                    last_err = exc
+                    logger.debug("focus_window attempt 1 failed: %s", exc)
+
+                # Attempt 2: BringWindowToTop + SetForegroundWindow
+                if not focused:
+                    try:
+                        _win32gui.BringWindowToTop(hwnd)
+                        focused = bool(_win32gui.SetForegroundWindow(hwnd))
+                    except Exception as exc:
+                        last_err = exc
+                        logger.debug("focus_window attempt 2 failed: %s", exc)
+
+                # Attempt 3: SetWindowPos TOPMOST trick (forces focus, then removes TOPMOST)
+                if not focused:
+                    try:
+                        _win32gui.SetWindowPos(
+                            hwnd, _win32con.HWND_TOPMOST,
+                            0, 0, 0, 0,
+                            _win32con.SWP_NOMOVE | _win32con.SWP_NOSIZE | _win32con.SWP_SHOWWINDOW,
+                        )
+                        _win32gui.SetWindowPos(
+                            hwnd, _win32con.HWND_NOTOPMOST,
+                            0, 0, 0, 0,
+                            _win32con.SWP_NOMOVE | _win32con.SWP_NOSIZE | _win32con.SWP_SHOWWINDOW,
+                        )
+                        focused = True
+                    except Exception as exc:
+                        last_err = exc
+                        logger.debug("focus_window attempt 3 failed: %s", exc)
+
+                if not focused:
+                    logger.error("focus_window all attempts failed. Last error: %s", last_err)
+                    return CommandResult(success=False, message=f"Failed to focus window: {last_err}")
+
             elif self.platform == "linux":
                 if not _xdotool_available:
                     return CommandResult(success=False, message="xdotool not available.")
