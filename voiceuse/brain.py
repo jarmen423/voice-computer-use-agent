@@ -8,6 +8,7 @@ modules, and returns a structured result.
 import json
 import logging
 import asyncio
+import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -272,6 +273,9 @@ class Brain:
         self._conversation_history: List[Dict[str, Any]] = []
         self._max_history_messages = 30
         self._max_agent_steps = 3
+        self._desktop_context_cache = ""
+        self._desktop_context_expires_at = 0.0
+        self._desktop_context_ttl_seconds = 2.0
 
     # ------------------------------------------------------------------
     # Public API
@@ -581,8 +585,15 @@ class Brain:
         apps are available, so it can resolve ambiguous names like
         'comment browser' → 'Comet Browser' or 'code' → 'Visual Studio Code'.
         Window enumeration can use platform APIs or subprocesses, so it runs in
-        a worker thread instead of blocking the event loop.
+        a worker thread instead of blocking the event loop. The final prompt
+        fragment is cached briefly because window state rarely changes multiple
+        times within the same spoken command, and some platforms enumerate
+        windows via subprocesses.
         """
+        now = time.monotonic()
+        if now < self._desktop_context_expires_at:
+            return self._desktop_context_cache
+
         lines: List[str] = []
 
         # Open windows
@@ -612,7 +623,10 @@ class Brain:
             "Use browser_search for web queries unless the user names a different browser."
         )
 
-        return "\n".join(lines)
+        context = "\n".join(lines)
+        self._desktop_context_cache = context
+        self._desktop_context_expires_at = now + self._desktop_context_ttl_seconds
+        return context
 
     # ------------------------------------------------------------------
     # Dispatch

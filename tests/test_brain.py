@@ -7,7 +7,7 @@ import pytest
 
 from voiceuse.brain import Brain, LLMError, LLMResponse, _LLMClient
 from voiceuse.config import Config
-from voiceuse.models import CommandResult, ToolCall
+from voiceuse.models import CommandResult, ToolCall, WindowInfo
 from voiceuse.safety import SafetyGuard
 
 
@@ -24,6 +24,9 @@ def mock_os_controller() -> MagicMock:
     ctrl.split_view_apps.return_value = CommandResult(success=True, message="tiled")
     ctrl.execute_system.return_value = CommandResult(success=True, message="executed")
     ctrl.find_chat.return_value = CommandResult(success=True, message="found chat")
+    ctrl.list_windows.return_value = [
+        WindowInfo(title="Chrome", pid=1, rect=(0, 0, 100, 100), monitor_index=1)
+    ]
     return ctrl
 
 
@@ -152,6 +155,18 @@ class TestProcessCommand:
             msg.get("role") == "assistant" and "Result: opened" in msg.get("content", "")
             for msg in second_messages
         )
+
+    @pytest.mark.asyncio
+    async def test_desktop_context_uses_short_ttl_cache(
+        self, brain: Brain, mock_os_controller: MagicMock
+    ) -> None:
+        """Repeated context builds should not re-enumerate windows inside the TTL."""
+        first = await brain._build_desktop_context()
+        second = await brain._build_desktop_context()
+
+        assert first == second
+        assert "Chrome" in first
+        assert mock_os_controller.list_windows.call_count == 1
 
     @pytest.mark.asyncio
     async def test_dispatch_click_element(
