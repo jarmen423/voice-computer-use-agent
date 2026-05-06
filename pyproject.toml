@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "voiceuse"
-version = "0.1.2"
+name = "voice-computer-use-agent"
+version = "0.1.3"
 description = "Local desktop voice and computer-control agent with MCP tools"
 readme = "README.md"
 license = "MIT"

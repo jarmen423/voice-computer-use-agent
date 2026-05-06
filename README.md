@@ -30,7 +30,7 @@ A local desktop voice agent that controls your computer hands-free. All AI infer
 **MCP computer-control tools only (recommended first install):**
 
 ```bash
-pipx install voiceuse
+pipx install voice-computer-use-agent
 ```
 
 This installs the global MCP server command:
@@ -48,7 +48,7 @@ codex mcp add voiceuse-computer-control -- voiceuse-computer-control-mcp
 **Full voice assistant install:**
 
 ```bash
-pipx install "voiceuse[all]"
+pipx install "voice-computer-use-agent[all]"
 ```
 
 Use this when you want the microphone, hotkey, STT, TTS, and realtime voice
@@ -224,10 +224,10 @@ Install options:
 
 ```bash
 # Lightweight desktop-control MCP server
-pipx install voiceuse
+pipx install voice-computer-use-agent
 
 # Full voice assistant with audio, STT, TTS, LLM, vision, and realtime extras
-pipx install "voiceuse[all]"
+pipx install "voice-computer-use-agent[all]"
 ```
 
 Publishing is handled by `.github/workflows/publish-pypi.yml` on version tags.

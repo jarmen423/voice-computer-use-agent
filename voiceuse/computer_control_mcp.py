@@ -209,7 +209,7 @@ TOOLS = [
 def _server_version() -> str:
     """Return the installed package version for MCP client metadata."""
     try:
-        return version("voiceuse")
+        return version("voice-computer-use-agent")
     except PackageNotFoundError:
         return "0.0.0"
 
