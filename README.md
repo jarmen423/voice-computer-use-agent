@@ -27,6 +27,35 @@ A local desktop voice agent that controls your computer hands-free. All AI infer
 
 ### 2. Install
 
+**MCP computer-control tools only (recommended first install):**
+
+```bash
+pipx install voiceuse
+```
+
+This installs the global MCP server command:
+
+```bash
+voiceuse-computer-control-mcp
+```
+
+Then register it with an MCP-capable agent. For Codex CLI:
+
+```bash
+codex mcp add voiceuse-computer-control -- voiceuse-computer-control-mcp
+```
+
+**Full voice assistant install:**
+
+```bash
+pipx install "voiceuse[all]"
+```
+
+Use this when you want the microphone, hotkey, STT, TTS, and realtime voice
+plugin dependencies installed into the pipx environment.
+
+**Local development install:**
+
 ```bash
 # Clone or download the repository
 cd voiceuse
@@ -125,6 +154,16 @@ computer_use:
   provider: codex          # "codex" (Codex CLI, OAuth) or "anthropic" (API key)
   api_key: null            # only needed for anthropic; codex uses `codex login`
 
+agent:
+  backend: external_agent   # "native" or "external_agent"
+  runner: codex_cli         # first external runner implementation
+  command: codex
+  working_directory: "."
+  timeout_seconds: 300
+  model: null
+  sandbox: null
+  skip_git_repo_check: true
+
 safety:
   confirm_destructive: true
   destructive_keywords:
@@ -168,7 +207,32 @@ plugins:
 **Key points:**
 - `api_key: null` means "read from the environment variable."
 - `--dry-run` on the CLI forces `app.dry_run: true` for that run.
+- `agent.backend: external_agent` keeps VoiceUse as the voice shell and sends
+  desktop work to an MCP-capable action agent.
 - `plugins.grok_voice.enabled: true` replaces the default STT→LLM→TTS pipeline with the xAI Realtime WebSocket.
+
+## PyPI / pipx Packaging
+
+VoiceUse ships two console commands:
+
+```bash
+voiceuse
+voiceuse-computer-control-mcp
+```
+
+Install options:
+
+```bash
+# Lightweight desktop-control MCP server
+pipx install voiceuse
+
+# Full voice assistant with audio, STT, TTS, LLM, vision, and realtime extras
+pipx install "voiceuse[all]"
+```
+
+Publishing is handled by `.github/workflows/publish-pypi.yml` on version tags.
+Before tagging a release, configure PyPI Trusted Publishing for this GitHub
+repository with the `pypi` environment.
 
 ## App Aliases
 

@@ -43,6 +43,16 @@ def test_mcp_server_lists_voiceuse_tools() -> None:
     assert "voiceuse_type_text" in tool_names
 
 
+def test_mcp_server_reports_installed_package_version() -> None:
+    """MCP metadata should not drift from the packaged VoiceUse version."""
+    response = server.handle_request(
+        FakeTools(),
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+    )
+
+    assert response["result"]["serverInfo"]["version"] == server._server_version()
+
+
 def test_mcp_handler_dispatches_tool_call() -> None:
     """JSON-RPC tools/call should dispatch to the named VoiceUse tool."""
     response = server.handle_request(

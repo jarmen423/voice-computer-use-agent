@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 import traceback
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any, Callable
 
@@ -205,6 +206,14 @@ TOOLS = [
 ]
 
 
+def _server_version() -> str:
+    """Return the installed package version for MCP client metadata."""
+    try:
+        return version("voiceuse")
+    except PackageNotFoundError:
+        return "0.0.0"
+
+
 def call_tool(tools: VoiceUseComputerTools, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Dispatch one MCP tool call to the VoiceUse desktop adapter.
 
@@ -265,7 +274,7 @@ def handle_request(tools: VoiceUseComputerTools, request: dict[str, Any]) -> dic
             result = {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "voiceuse-computer-control", "version": "0.1.1"},
+                "serverInfo": {"name": "voiceuse-computer-control", "version": _server_version()},
             }
         elif method == "tools/list":
             result = {"tools": TOOLS}

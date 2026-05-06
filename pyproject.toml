@@ -4,17 +4,52 @@ build-backend = "hatchling.build"
 
 [project]
 name = "voiceuse"
-version = "0.1.1"
-description = "Local desktop voice agent that controls your OS hands-free"
+version = "0.1.2"
+description = "Local desktop voice and computer-control agent with MCP tools"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
+authors = [
+    { name = "VoiceUse contributors" },
+]
+keywords = ["voice", "desktop-automation", "computer-use", "mcp", "codex"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Desktop Environment",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Software Development :: User Interfaces",
+]
 dependencies = [
-    "groq>=0.9.0",
-    "openai>=1.30.0",
-    "anthropic>=0.28.0",
     "pydantic>=2.0.0",
     "pyyaml>=6.0.1",
+    "pyautogui>=0.9.54",
+    "pyperclip>=1.8.2",
+    "mss>=9.0.1",
+    "pygetwindow>=0.0.9",
+    "pywin32>=306; sys_platform == 'win32'",
+    "websockets>=12.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/jarmen423/voice-computer-use-agent"
+Repository = "https://github.com/jarmen423/voice-computer-use-agent"
+Issues = "https://github.com/jarmen423/voice-computer-use-agent/issues"
+
+[project.optional-dependencies]
+voice = [
+    "groq>=0.9.0",
     "pyaudio>=0.2.14",
     "pynput>=1.7.6",
     "pvporcupine>=1.9.0",
@@ -24,19 +59,38 @@ dependencies = [
     "pygame>=2.5.0",
     "pydub>=0.25.1",
     "simpleaudio>=1.0.4",
-    "pyautogui>=0.9.54",
-    "pyperclip>=1.8.2",
-    "mss>=9.0.1",
-    "pygetwindow>=0.0.9",
-    "pywin32>=306; sys_platform == 'win32'",
+]
+llm = [
+    "groq>=0.9.0",
+    "openai>=1.30.0",
+]
+anthropic = [
+    "anthropic>=0.28.0",
+]
+grok = [
     "websockets>=12.0",
 ]
-
-[project.optional-dependencies]
+all = [
+    "groq>=0.9.0",
+    "openai>=1.30.0",
+    "anthropic>=0.28.0",
+    "pyaudio>=0.2.14",
+    "pynput>=1.7.6",
+    "pvporcupine>=1.9.0",
+    "webrtcvad>=2.0.10",
+    "edge-tts>=6.1.0",
+    "pyttsx3>=2.90",
+    "pygame>=2.5.0",
+    "pydub>=0.25.1",
+    "simpleaudio>=1.0.4",
+    "websockets>=12.0",
+]
 dev = [
+    "build>=1.2.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "ruff>=0.4.0",
+    "twine>=5.1.0",
     "mypy>=1.10.0",
 ]
 
@@ -46,6 +100,23 @@ voiceuse-computer-control-mcp = "voiceuse.computer_control_mcp:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["voiceuse"]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/.agentic-memory",
+    "/.codex",
+    "/.github",
+    "/.kilo",
+    "/.pytest_cache",
+    "/.ruff_cache",
+    "/.venv*",
+    "/backend",
+    "/build",
+    "/dist",
+    "/logs",
+    "/scratch.md",
+    "/.env",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
