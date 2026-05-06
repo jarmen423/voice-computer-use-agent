@@ -1,6 +1,6 @@
 {
   "name": "voiceuse-computer-control",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Codex plugin that exposes VoiceUse desktop observation and control tools through MCP.",
   "author": {
     "name": "VoiceUse",

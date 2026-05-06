@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "voiceuse"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local desktop voice agent that controls your OS hands-free"
 readme = "README.md"
 license = {text = "MIT"}
@@ -42,6 +42,7 @@ dev = [
 
 [project.scripts]
 voiceuse = "voiceuse.main:_entry"
+voiceuse-computer-control-mcp = "voiceuse.computer_control_mcp:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["voiceuse"]

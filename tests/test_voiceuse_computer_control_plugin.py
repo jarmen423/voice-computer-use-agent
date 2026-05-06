@@ -1,26 +1,16 @@
-"""Tests for the repo-local VoiceUse Computer Control Codex plugin."""
+"""Tests for the VoiceUse Computer Control Codex plugin and MCP CLI."""
 
 from __future__ import annotations
 
-import importlib.util
 import json
 from pathlib import Path
 
+import voiceuse.computer_control_mcp as server
 from voiceuse.models import CommandResult
 
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "plugins" / "voiceuse-computer-control"
 SERVER_PATH = PLUGIN_ROOT / "scripts" / "mcp_server.py"
-
-
-def _load_server_module():
-    """Load the plugin MCP server as a module for unit tests."""
-    spec = importlib.util.spec_from_file_location("voiceuse_mcp_server", SERVER_PATH)
-    assert spec is not None
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    return module
 
 
 class FakeTools:
@@ -46,7 +36,6 @@ def test_plugin_manifest_points_to_mcp_and_skills() -> None:
 
 def test_mcp_server_lists_voiceuse_tools() -> None:
     """The MCP server should advertise the desktop-control tool surface."""
-    server = _load_server_module()
     tool_names = {tool["name"] for tool in server.TOOLS}
 
     assert "voiceuse_observe_screen" in tool_names
@@ -56,8 +45,6 @@ def test_mcp_server_lists_voiceuse_tools() -> None:
 
 def test_mcp_handler_dispatches_tool_call() -> None:
     """JSON-RPC tools/call should dispatch to the named VoiceUse tool."""
-    server = _load_server_module()
-
     response = server.handle_request(
         FakeTools(),
         {
@@ -71,3 +58,21 @@ def test_mcp_handler_dispatches_tool_call() -> None:
     assert response["id"] == 1
     assert response["result"]["isError"] is False
     assert "Clicked" in response["result"]["content"][0]["text"]
+
+
+def test_plugin_mcp_uses_installable_console_command() -> None:
+    """The plugin should be launchable globally through the package CLI."""
+    mcp = json.loads((PLUGIN_ROOT / ".mcp.json").read_text(encoding="utf-8"))
+    config = mcp["mcpServers"]["voiceuse-computer-control"]
+
+    assert config["command"] == "voiceuse-computer-control-mcp"
+    assert config["args"] == []
+    assert Path(config["env"]["VOICEUSE_CONFIG"]).is_absolute()
+
+
+def test_compatibility_script_reexports_packaged_server() -> None:
+    """Older registrations that call the script should still find handlers."""
+    script = SERVER_PATH.read_text(encoding="utf-8")
+
+    assert "voiceuse.computer_control_mcp" in script
+    assert "handle_request" in script
