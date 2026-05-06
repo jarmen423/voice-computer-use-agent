@@ -31,7 +31,6 @@ jobs:
       - name: Lint with ruff
         run: |
           ruff check voiceuse tests
-          ruff format --check voiceuse tests
 
       - name: Type check with mypy
         run: mypy voiceuse

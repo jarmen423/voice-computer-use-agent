@@ -54,6 +54,20 @@ pipx install "voice-computer-use-agent[all]"
 Use this when you want the microphone, hotkey, STT, TTS, and realtime voice
 plugin dependencies installed into the pipx environment.
 
+**uv install:**
+
+```bash
+# Lightweight desktop-control MCP server
+uv tool install voice-computer-use-agent
+
+# Full voice assistant with audio, STT, TTS, LLM, vision, and realtime extras
+uv tool install "voice-computer-use-agent[all]"
+```
+
+No extra packaging is required for `uv`; it installs the same PyPI
+distribution and exposes the same `voiceuse` and
+`voiceuse-computer-control-mcp` commands.
+
 **Local development install:**
 
 ```bash
@@ -228,6 +242,10 @@ pipx install voice-computer-use-agent
 
 # Full voice assistant with audio, STT, TTS, LLM, vision, and realtime extras
 pipx install "voice-computer-use-agent[all]"
+
+# Same package through uv
+uv tool install voice-computer-use-agent
+uv tool install "voice-computer-use-agent[all]"
 ```
 
 Publishing is handled by `.github/workflows/publish-pypi.yml` on version tags.

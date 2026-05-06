@@ -1,32 +1,17 @@
-name: Release
+name: Release Binaries
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  release:
-    needs: [build-windows, build-macos, build-linux]
+  disabled:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            artifacts/VoiceUse-Windows/VoiceUse.exe
-            artifacts/VoiceUse-macOS/VoiceUse
-            artifacts/VoiceUse-Linux/VoiceUse
-          draft: true
-          generate_release_notes: true
+      - name: Explain current release path
+        run: |
+          echo "Binary GitHub Releases are intentionally disabled for now."
+          echo "The active release path is PyPI publishing through publish-pypi.yml."
+          echo "Restore executable build artifacts before re-enabling binary releases."
