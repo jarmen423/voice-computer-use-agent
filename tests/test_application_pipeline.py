@@ -28,6 +28,7 @@ async def test_pipeline_runs_stt_brain_and_interrupting_tts() -> None:
     app.brain.process_command = AsyncMock(
         return_value=CommandResult(success=True, message="Opened Chrome.")
     )
+    app.command_backend = app.brain
     app.tts_manager = AsyncMock()
     app.tts_manager.speak = AsyncMock(return_value=None)
 
@@ -40,19 +41,40 @@ async def test_pipeline_runs_stt_brain_and_interrupting_tts() -> None:
 
 
 @pytest.mark.asyncio
+async def test_pipeline_can_use_external_agent_backend() -> None:
+    """The voice pipeline should allow STT -> external agent -> TTS routing."""
+    app = Application(Config())
+    _mark_idle(app)
+    app.input_manager = AsyncMock()
+    app.input_manager.transcribe_audio = AsyncMock(return_value="search for pirates")
+    app.command_backend = AsyncMock()
+    app.command_backend.process_command = AsyncMock(
+        return_value=CommandResult(success=True, message="Searched for pirates.")
+    )
+    app.tts_manager = AsyncMock()
+    app.tts_manager.speak = AsyncMock(return_value=None)
+
+    await app.pipeline(b"audio")
+
+    app.command_backend.process_command.assert_awaited_once_with("search for pirates")
+    app.tts_manager.speak.assert_awaited_once_with("Searched for pirates.", interrupt=True)
+    assert app.state == ApplicationState.IDLE
+
+
+@pytest.mark.asyncio
 async def test_pipeline_handles_empty_transcription_without_brain() -> None:
     """Empty STT output should short-circuit before LLM/tool execution."""
     app = Application(Config())
     _mark_idle(app)
     app.input_manager = AsyncMock()
     app.input_manager.transcribe_audio = AsyncMock(return_value="")
-    app.brain = AsyncMock()
+    app.command_backend = AsyncMock()
     app.tts_manager = AsyncMock()
     app.tts_manager.speak = AsyncMock(return_value=None)
 
     await app.pipeline(b"audio")
 
-    app.brain.process_command.assert_not_called()
+    app.command_backend.process_command.assert_not_called()
     app.tts_manager.speak.assert_awaited_once_with("I didn't hear anything.", interrupt=True)
     assert app.state == ApplicationState.IDLE
 

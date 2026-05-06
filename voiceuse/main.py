@@ -19,6 +19,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 
+from voiceuse.agent_backend import ExternalAgentBackend, NativeBrainBackend, VoiceCommandBackend
 from voiceuse.brain import Brain, LLMError
 from voiceuse.audio_device import AudioDevice
 from voiceuse.config import Config
@@ -204,6 +205,7 @@ class Application:
         self.vision_bridge: Optional[VisionBridge] = None
         self.safety_guard: Optional[SafetyGuard] = None
         self.brain: Optional[Brain] = None
+        self.command_backend: Optional[VoiceCommandBackend] = None
         self.active_plugin: Optional[Any] = None
         self.audio_device = AudioDevice()
 
@@ -256,6 +258,12 @@ class Application:
             tts_manager=self.tts_manager,
             get_confirmation_text=self.get_confirmation_text,
         )
+        if self.config.agent.backend == "external_agent":
+            self.command_backend = ExternalAgentBackend(config=self.config)
+            logger.info("Voice command backend: external agent (%s).", self.config.agent.runner)
+        else:
+            self.command_backend = NativeBrainBackend(self.brain)
+            logger.info("Voice command backend: native Brain.")
 
         logger.info("All subsystems initialised.")
         self._set_state(ApplicationState.IDLE)
@@ -373,7 +381,7 @@ class Application:
 
     async def pipeline(self, audio_bytes: bytes) -> None:
         """Run the default STT -> Brain -> TTS command pipeline."""
-        if self.tts_manager is None or self.brain is None or self.input_manager is None:
+        if self.tts_manager is None or self.command_backend is None or self.input_manager is None:
             logger.error("Subsystems not initialised; skipping pipeline.")
             return
 
@@ -397,21 +405,21 @@ class Application:
 
         logger.info("Transcribed: %r", text)
 
-        brain_timer = LatencyTimer("pipeline.brain", detail=text[:80])
+        backend_timer = LatencyTimer("pipeline.backend", detail=text[:80])
         try:
             self._set_state(ApplicationState.THINKING)
-            result = await self.brain.process_command(text)
-            brain_timer.finish(success=result.success, detail=result.message[:120])
+            result = await self.command_backend.process_command(text)
+            backend_timer.finish(success=result.success, detail=result.message[:120])
         except LLMError as exc:
-            brain_timer.finish(success=False, detail=type(exc).__name__)
+            backend_timer.finish(success=False, detail=type(exc).__name__)
             pipeline_timer.finish(success=False, detail="llm_failed")
             logger.error("Brain LLM error: %s", exc)
             await self.speak("I'm having trouble reaching my language model right now.", interrupt=True)
             return
         except Exception:
-            brain_timer.finish(success=False, detail="unexpected")
-            pipeline_timer.finish(success=False, detail="brain_failed")
-            logger.exception("Brain processing error")
+            backend_timer.finish(success=False, detail="unexpected")
+            pipeline_timer.finish(success=False, detail="backend_failed")
+            logger.exception("Voice command backend processing error")
             await self.speak("Something went wrong while trying to help.", interrupt=True)
             return
 
@@ -444,6 +452,10 @@ class Application:
         print(f"   Wake   : {self.config.audio.wake_word}")
         if self.active_plugin is not None:
             print(f"   Plugin : {self.active_plugin.name}")
+        elif self.config.agent.backend == "external_agent":
+            print(f"   Agent  : external ({self.config.agent.runner})")
+        else:
+            print("   Agent  : native")
         print("   Press Ctrl+C to quit.")
         print()
 
@@ -478,7 +490,12 @@ async def main() -> None:
         cfg.app.dry_run = True
         logger.info("Dry-run mode enabled - using mock responses.")
 
-    logger.info("Config loaded (STT=%s, LLM=%s).", cfg.stt.provider, cfg.llm.provider)
+    logger.info(
+        "Config loaded (STT=%s, LLM=%s, agent_backend=%s).",
+        cfg.stt.provider,
+        cfg.llm.provider,
+        cfg.agent.backend,
+    )
 
     app = Application(config=cfg)
     await app.initialise()

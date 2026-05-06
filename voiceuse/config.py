@@ -72,6 +72,26 @@ class ComputerUseConfig(BaseModel):
         return v or os.environ.get("ANTHROPIC_API_KEY")
 
 
+class AgentConfig(BaseModel):
+    """Selects the planner/executor behind the voice interface.
+
+    ``native`` keeps the original in-process Brain pipeline. ``external_agent``
+    keeps VoiceUse as the hotkey, microphone, STT, and TTS shell while sending
+    the transcribed command to an external desktop action agent. The first
+    runner is Codex CLI, but the prompt contract deliberately stays agent-
+    generic so another MCP-capable agent can be added later.
+    """
+
+    backend: Literal["native", "external_agent"] = "native"
+    runner: Literal["codex_cli"] = "codex_cli"
+    command: str = "codex"
+    working_directory: str = "."
+    timeout_seconds: int = 300
+    model: Optional[str] = None
+    sandbox: Optional[str] = None
+    skip_git_repo_check: bool = True
+
+
 class SafetyConfig(BaseModel):
     confirm_destructive: bool = True
     allowed_tools: list[str] = Field(default_factory=lambda: [
@@ -141,6 +161,7 @@ class Config(BaseModel):
     audio: AudioConfig = Field(default_factory=AudioConfig)
     stt: STTConfig = Field(default_factory=STTConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
+    agent: AgentConfig = Field(default_factory=AgentConfig)
     tts: TTSConfig = Field(default_factory=TTSConfig)
     computer_use: ComputerUseConfig = Field(default_factory=ComputerUseConfig)
     safety: SafetyConfig = Field(default_factory=SafetyConfig)

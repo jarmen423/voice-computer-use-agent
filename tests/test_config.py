@@ -81,3 +81,11 @@ class TestConfigFromYaml:
             cfg = Config.from_yaml(str(path))
             assert cfg.audio.sample_rate == 48000
             assert cfg.stt.model == "whisper-small"
+
+    def test_agent_backend_config(self) -> None:
+        """Config should support selecting an external desktop action agent."""
+        cfg = Config(agent={"backend": "external_agent", "runner": "codex_cli", "command": "codex"})
+
+        assert cfg.agent.backend == "external_agent"
+        assert cfg.agent.runner == "codex_cli"
+        assert cfg.agent.command == "codex"

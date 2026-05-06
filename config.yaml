@@ -25,6 +25,21 @@ llm:
   temperature: 0.1
   max_tokens: 1024
 
+agent:
+  # "native" uses VoiceUse's in-process Brain. "external_agent" keeps
+  # VoiceUse as the voice interface and delegates desktop work to an MCP-capable
+  # action agent.
+  backend: external_agent
+  # First supported runner. The prompt contract is generic so another runner can
+  # be added later without changing the voice pipeline.
+  runner: codex_cli
+  command: codex
+  working_directory: "D:\\code\\voice-computer-use-agent"
+  timeout_seconds: 300
+  model: null
+  sandbox: null
+  skip_git_repo_check: true
+
 tts:
   provider: edge
   voice: en-US-AriaNeural
