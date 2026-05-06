@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import voiceuse.computer_control_mcp as server
 from voiceuse.models import CommandResult
@@ -77,7 +77,8 @@ def test_plugin_mcp_uses_installable_console_command() -> None:
 
     assert config["command"] == "voiceuse-computer-control-mcp"
     assert config["args"] == []
-    assert Path(config["env"]["VOICEUSE_CONFIG"]).is_absolute()
+    config_path = config["env"]["VOICEUSE_CONFIG"]
+    assert Path(config_path).is_absolute() or PureWindowsPath(config_path).is_absolute()
 
 
 def test_compatibility_script_reexports_packaged_server() -> None:
