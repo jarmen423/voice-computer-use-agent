@@ -1,6 +1,6 @@
 ---
 name: voiceuse-computer-control
-description: Use when Codex has the VoiceUse Computer Control plugin available and needs to control the local desktop through MCP tools. Guides Codex to run the full observe, reason, act, verify loop using VoiceUse tools for screenshots, windows, clicks, typing, keys, waiting, and app focus.
+description: Use when the VoiceUse Computer Control plugin is available and you need to control the local desktop through MCP tools. Guides agent to run the full observe, reason, act, verify loop using VoiceUse tools for screenshots, windows, clicks, typing, keys, waiting, and app focus.
 ---
 
 # VoiceUse Computer Control
