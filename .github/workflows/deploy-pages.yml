@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
       - 'landing-page/**'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
@@ -18,6 +20,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install docs dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      - name: Build public docs
+        run: |
+          # Exclude docs/private/ from the public build while keeping it in the repo.
+          mv docs/private /tmp/private-docs-backup 2>/dev/null || true
+          mkdocs build
+          mv /tmp/private-docs-backup docs/private 2>/dev/null || true
+
+      - name: Sync built docs into landing-page
+        run: |
+          rm -rf landing-page/docs
+          cp -r site landing-page/docs
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3

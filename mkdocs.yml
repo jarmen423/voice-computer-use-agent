@@ -1,8 +1,9 @@
 site_name: VoiceUse Documentation
 site_description: Documentation for VoiceUse — a local desktop voice agent that controls your OS hands-free.
-site_url: https://jarmen423.github.io/voice-computer-use-agent/
+site_url: https://computer-use.agentmemorylabs.com/docs/
 repo_name: jarmen423/voice-computer-use-agent
 repo_url: https://github.com/jarmen423/voice-computer-use-agent
+docs_dir: docs
 
 nav:
   - Getting Started: index.md

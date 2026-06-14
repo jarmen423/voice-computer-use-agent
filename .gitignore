@@ -47,3 +47,6 @@ config.yaml
 .env
 site/
 .wrangler/
+
+# Generated docs output (built in CI from docs/)
+landing-page/docs/
