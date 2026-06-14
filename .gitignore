@@ -45,3 +45,5 @@ config.yaml
 # Kilo plans
 .kilo/
 .env
+site/
+.wrangler/

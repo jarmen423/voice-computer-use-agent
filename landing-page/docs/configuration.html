@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration — VoiceUse Docs</title>
+  <meta name="description" content="VoiceUse configuration reference for config.yaml.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="../index.html" class="logo">
+        <span class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+        </span>
+        <span class="logo-text">VoiceUse</span>
+      </a>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="../index.html#features">Features</a></li>
+        <li><a href="../index.html#how-it-works">How It Works</a></li>
+        <li><a href="../index.html#downloads">Download</a></li>
+        <li><a href="../index.html#plugins">Plugins</a></li>
+        <li><a href="../index.html#safety">Safety</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="https://github.com/jarmen423/voice-computer-use-agent" target="_blank" rel="noopener" class="nav-cta">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="docs-sidebar-title">Documentation</div>
+      <nav class="docs-nav">
+        <a href="index.html">Getting Started</a>
+        <a href="installation.html">Installation</a>
+        <a href="configuration.html" class="active">Configuration</a>
+        <a href="usage.html">Usage</a>
+        <a href="plugins.html">Plugins</a>
+        <a href="safety.html">Safety</a>
+        <a href="troubleshooting.html">Troubleshooting</a>
+        <a href="development.html">Development</a>
+        <a href="architecture.html">Architecture</a>
+      </nav>
+    </aside>
+
+    <main class="docs-content">
+      <div class="docs-breadcrumb">
+        <a href="../index.html">VoiceUse</a>
+        <span class="docs-breadcrumb-sep">/</span>
+        <a href="index.html">Docs</a>
+        <span class="docs-breadcrumb-sep">/</span>
+        <span>Configuration</span>
+      </div>
+
+      <h1>Configuration</h1>
+
+      <p>VoiceUse is configured through a <code>config.yaml</code> file in the working directory. A default file is generated automatically on first run if one doesn't exist.</p>
+
+      <h2>Configuration File Location</h2>
+
+      <p>The config file is loaded from:</p>
+
+      <pre><code>./config.yaml          # current working directory</code></pre>
+
+      <h2>Full Configuration Reference</h2>
+
+      <pre><code># ============================================
+# Audio Settings
+# ============================================
+audio:
+  sample_rate: 16000              # Audio capture sample rate
+  hotkey: "right ctrl"            # Key combination to hold for voice input
+  wake_word: "computer"           # Free Porcupine keyword
+  wake_word_model_path: null      # Custom wake word model file
+
+# ============================================
+# Speech-to-Text
+# ============================================
+stt:
+  provider: groq                  # STT provider
+  model: whisper-large-v3         # Whisper model to use
+  api_key: null                   # Falls back to GROQ_API_KEY env var
+
+# ============================================
+# LLM Orchestration
+# ============================================
+llm:
+  provider: groq                  # Primary: groq, cerebras, or openai
+  model: llama-3.3-70b-versatile  # Primary model
+  api_key: null                   # Falls back to provider-specific env var
+  fallback_provider: openai       # Fallback provider
+  fallback_model: gpt-4o-mini     # Fallback model
+  fallback_api_key: null          # Falls back to OPENAI_API_KEY env var
+  cerebras_api_key: null          # Falls back to CEREBRAS_API_KEY env var
+
+# ============================================
+# Text-to-Speech
+# ============================================
+tts:
+  provider: edge                  # edge or pyttsx3
+  voice: en-US-AriaNeural         # Voice identifier
+  enabled: true                   # Enable/disable TTS
+
+# ============================================
+# Computer Vision
+# ============================================
+computer_use:
+  provider: codex                 # codex or anthropic
+  api_key: null                   # Only needed for anthropic
+
+# ============================================
+# Agent Backend
+# ============================================
+agent:
+  backend: external_agent         # native or external_agent
+  runner: codex_cli               # External runner implementation
+  command: codex
+  working_directory: "."
+  timeout_seconds: 300
+  model: null
+  sandbox: null
+  skip_git_repo_check: true
+
+# ============================================
+# Safety & Confirmation
+# ============================================
+safety:
+  confirm_destructive: true       # Enable spoken confirmation
+  destructive_keywords:           # Words triggering confirmation
+    - close
+    - quit
+    - delete
+    - remove
+    - kill
+    - terminate
+    - shutdown
+    - reboot
+    - format
+    - rm -rf
+    - type password
+    - enter password
+    - input password
+  confirmation_timeout_seconds: 10
+
+# ============================================
+# Application Preferences
+# ============================================
+app:
+  preferred_browser: chrome       # Default browser for web actions
+  preferred_terminal: cmd         # Default terminal
+  codex_app_name: Codex           # Codex window title
+  dry_run: false                  # Mock mode (overridden by --dry-run)
+  aliases:                        # Spoken name → exact app name
+    comet: "Comet Browser"
+    # vscode: "Visual Studio Code"
+    # edge: "Microsoft Edge"
+
+# ============================================
+# Plugins
+# ============================================
+plugins:
+  grok_voice:
+    enabled: false
+    api_key: null                 # Falls back to XAI_API_KEY env var
+    model: grok-voice-think-fast-1.0
+    voice: Eve                    # Eve, Ara, Leo, Rex, Sal
+    instructions: "You are a desktop voice assistant..."
+    sample_rate: 24000
+    turn_detection_type: server_vad
+    input_audio_transcription_model: grok-2-audio</code></pre>
+
+      <h2>Environment Variables</h2>
+
+      <p>All <code>api_key: null</code> values in config fall back to environment variables:</p>
+
+      <table>
+        <thead>
+          <tr><th>Variable</th><th>Used By</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>GROQ_API_KEY</code></td><td>STT + primary LLM</td></tr>
+          <tr><td><code>OPENAI_API_KEY</code></td><td>Fallback LLM</td></tr>
+          <tr><td><code>CEREBRAS_API_KEY</code></td><td>Cerebras LLM</td></tr>
+          <tr><td><code>ANTHROPIC_API_KEY</code></td><td>Anthropic vision provider</td></tr>
+          <tr><td><code>XAI_API_KEY</code></td><td>Grok Voice plugin</td></tr>
+          <tr><td><code>PORCUPINE_ACCESS_KEY</code></td><td>Custom wake word models</td></tr>
+        </tbody>
+      </table>
+
+      <div class="docs-callout tip">
+        <div class="docs-callout-title">Tip</div>
+        <p>Set these in your shell profile or a <code>.env</code> file loaded by your environment manager. Never commit API keys to version control.</p>
+      </div>
+
+      <h2>App Aliases</h2>
+
+      <p>Aliases help the LLM resolve spoken nicknames to exact application names:</p>
+
+      <pre><code>app:
+  aliases:
+    vscode: "Visual Studio Code"
+    edge: "Microsoft Edge"
+    terminal: "Windows Terminal"</code></pre>
+
+      <p>This is especially useful when STT makes transcription errors. The LLM receives your open windows list plus aliases, so it can fuzzy-match "comment" to "Comet Browser".</p>
+
+      <h2>Backend Selection</h2>
+
+      <h3>Native Backend</h3>
+
+      <p>Uses the built-in Brain LLM orchestrator with direct tool dispatch:</p>
+
+      <pre><code>agent:
+  backend: native</code></pre>
+
+      <h3>External Agent Backend</h3>
+
+      <p>Sends desktop work to an MCP-capable action agent (e.g., Codex CLI):</p>
+
+      <pre><code>agent:
+  backend: external_agent
+  runner: codex_cli</code></pre>
+
+      <p>VoiceUse acts as the voice shell; the external agent handles the observe-reason-act-verify loop.</p>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="logo-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+          </span>
+          <span>VoiceUse</span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/jarmen423/voice-computer-use-agent" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/issues" target="_blank" rel="noopener">Issues</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+        </div>
+        <p class="footer-copy">Open source under MIT License. Built by VoiceUse contributors.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../script.js"></script>
+</body>
+</html>

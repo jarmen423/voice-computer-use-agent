@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Troubleshooting — VoiceUse Docs</title>
+  <meta name="description" content="VoiceUse troubleshooting guide for common issues.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="../index.html" class="logo">
+        <span class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+        </span>
+        <span class="logo-text">VoiceUse</span>
+      </a>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="../index.html#features">Features</a></li>
+        <li><a href="../index.html#how-it-works">How It Works</a></li>
+        <li><a href="../index.html#downloads">Download</a></li>
+        <li><a href="../index.html#plugins">Plugins</a></li>
+        <li><a href="../index.html#safety">Safety</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="https://github.com/jarmen423/voice-computer-use-agent" target="_blank" rel="noopener" class="nav-cta">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="docs-sidebar-title">Documentation</div>
+      <nav class="docs-nav">
+        <a href="index.html">Getting Started</a>
+        <a href="installation.html">Installation</a>
+        <a href="configuration.html">Configuration</a>
+        <a href="usage.html">Usage</a>
+        <a href="plugins.html">Plugins</a>
+        <a href="safety.html">Safety</a>
+        <a href="troubleshooting.html" class="active">Troubleshooting</a>
+        <a href="development.html">Development</a>
+        <a href="architecture.html">Architecture</a>
+      </nav>
+    </aside>
+
+    <main class="docs-content">
+      <div class="docs-breadcrumb">
+        <a href="../index.html">VoiceUse</a>
+        <span class="docs-breadcrumb-sep">/</span>
+        <a href="index.html">Docs</a>
+        <span class="docs-breadcrumb-sep">/</span>
+        <span>Troubleshooting</span>
+      </div>
+
+      <h1>Troubleshooting</h1>
+
+      <p>Common issues and their solutions.</p>
+
+      <h2>Installation Issues</h2>
+
+      <h3><code>pyaudio</code> install fails</h3>
+
+      <p><strong>Cause:</strong> Missing PortAudio system library.</p>
+
+      <p><strong>Fix:</strong></p>
+
+      <h4>Windows</h4>
+      <pre><code>pip install pipwin
+pipwin install pyaudio</code></pre>
+
+      <h4>Debian / Ubuntu</h4>
+      <pre><code>sudo apt-get install portaudio19-dev python3-pyaudio</code></pre>
+
+      <h4>macOS</h4>
+      <pre><code>brew install portaudio</code></pre>
+
+      <h3><code>mss</code> or <code>pyautogui</code> import error</h3>
+
+      <p><strong>Fix:</strong></p>
+
+      <pre><code>pip install mss pyautogui</code></pre>
+
+      <h2>Runtime Issues</h2>
+
+      <h3>No audio playback</h3>
+
+      <p><strong>Cause:</strong> Missing playback backend.</p>
+
+      <p><strong>Fix:</strong> Install <code>ffplay</code> (via ffmpeg) or <code>mpv</code>:</p>
+
+      <h4>Windows</h4>
+      <ol>
+        <li>Download ffmpeg from <a href="https://ffmpeg.org">ffmpeg.org</a></li>
+        <li>Add <code>bin</code> folder to PATH</li>
+        <li>Verify: <code>ffplay -version</code></li>
+      </ol>
+
+      <h4>macOS</h4>
+      <pre><code>brew install ffmpeg</code></pre>
+
+      <h4>Linux</h4>
+      <pre><code>sudo apt-get install ffmpeg
+# or
+sudo pacman -S ffmpeg</code></pre>
+
+      <h3>Hotkey not working</h3>
+
+      <table>
+        <thead><tr><th>Cause</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr><td><code>pynput</code> not installed</td><td><code>pip install pynput</code></td></tr>
+          <tr><td>No OS permissions</td><td>Run as administrator (Windows) or check input permissions (macOS)</td></tr>
+          <tr><td>Conflicting hotkey</td><td>Change <code>audio.hotkey</code> in <code>config.yaml</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Wake word not detected</h3>
+
+      <p><strong>Cause:</strong> Missing <code>PORCUPINE_ACCESS_KEY</code> for custom models.</p>
+
+      <p><strong>Fix:</strong></p>
+
+      <ul>
+        <li>Built-in "computer" keyword works <strong>without</strong> a key</li>
+        <li>Custom models require <code>PORCUPINE_ACCESS_KEY</code></li>
+        <li>Check microphone permissions</li>
+      </ul>
+
+      <h3>STT / LLM calls hang</h3>
+
+      <table>
+        <thead><tr><th>Cause</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr><td>Missing API key</td><td>Set <code>GROQ_API_KEY</code></td></tr>
+          <tr><td>Network issues</td><td>Check internet connection</td></tr>
+          <tr><td>Rate limiting</td><td>Wait and retry; check provider status</td></tr>
+        </tbody>
+      </table>
+
+      <p>Run with <code>--verbose</code> for detailed error output:</p>
+
+      <pre><code>voiceuse --verbose</code></pre>
+
+      <h3>Window focus fails on Linux</h3>
+
+      <p><strong>Cause:</strong> <code>xdotool</code> not installed or Wayland incompatibility.</p>
+
+      <p><strong>Fix:</strong></p>
+
+      <pre><code>sudo apt-get install xdotool wmctrl</code></pre>
+
+      <div class="docs-callout warning">
+        <div class="docs-callout-title">Wayland</div>
+        <p><code>xdotool</code> does not work on Wayland. Switch to X11 or use XWayland.</p>
+      </div>
+
+      <h3>Low confidence on vision clicks</h3>
+
+      <table>
+        <thead><tr><th>Cause</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr><td>Poor lighting</td><td>Increase room lighting</td></tr>
+          <tr><td>High monitor scaling</td><td>Reduce DPI scaling to 100%</td></tr>
+          <tr><td>Ambiguous description</td><td>Be more specific: "the blue Submit button"</td></tr>
+          <tr><td>Wrong provider</td><td>Try switching between Codex and Anthropic</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Grok Voice plugin won't start</h3>
+
+      <table>
+        <thead><tr><th>Cause</th><th>Fix</th></tr></thead>
+        <tbody>
+          <tr><td>Missing <code>XAI_API_KEY</code></td><td>Set environment variable</td></tr>
+          <tr><td><code>websockets</code> not installed</td><td><code>pip install websockets</code></td></tr>
+          <tr><td>Microphone in use</td><td>Close other apps using the microphone</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Getting Help</h2>
+
+      <p>If your issue isn't listed here:</p>
+
+      <ol>
+        <li>Run with <code>--verbose</code> and check the output</li>
+        <li>Check <a href="https://github.com/jarmen423/voice-computer-use-agent/issues">GitHub Issues</a></li>
+        <li>Open a new issue with:
+          <ul>
+            <li>Your OS and Python version</li>
+            <li>Your <code>config.yaml</code> (with API keys redacted)</li>
+            <li>The exact error message</li>
+            <li>Steps to reproduce</li>
+          </ul>
+        </li>
+      </ol>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="logo-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+          </span>
+          <span>VoiceUse</span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/jarmen423/voice-computer-use-agent" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/issues" target="_blank" rel="noopener">Issues</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+        </div>
+        <p class="footer-copy">Open source under MIT License. Built by VoiceUse contributors.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../script.js"></script>
+</body>
+</html>

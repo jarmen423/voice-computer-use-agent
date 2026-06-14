@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Usage — VoiceUse Docs</title>
+  <meta name="description" content="VoiceUse usage guide and common commands.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="../index.html" class="logo">
+        <span class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+        </span>
+        <span class="logo-text">VoiceUse</span>
+      </a>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="../index.html#features">Features</a></li>
+        <li><a href="../index.html#how-it-works">How It Works</a></li>
+        <li><a href="../index.html#downloads">Download</a></li>
+        <li><a href="../index.html#plugins">Plugins</a></li>
+        <li><a href="../index.html#safety">Safety</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="https://github.com/jarmen423/voice-computer-use-agent" target="_blank" rel="noopener" class="nav-cta">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="docs-sidebar-title">Documentation</div>
+      <nav class="docs-nav">
+        <a href="index.html">Getting Started</a>
+        <a href="installation.html">Installation</a>
+        <a href="configuration.html">Configuration</a>
+        <a href="usage.html" class="active">Usage</a>
+        <a href="plugins.html">Plugins</a>
+        <a href="safety.html">Safety</a>
+        <a href="troubleshooting.html">Troubleshooting</a>
+        <a href="development.html">Development</a>
+        <a href="architecture.html">Architecture</a>
+      </nav>
+    </aside>
+
+    <main class="docs-content">
+      <div class="docs-breadcrumb">
+        <a href="../index.html">VoiceUse</a>
+        <span class="docs-breadcrumb-sep">/</span>
+        <a href="index.html">Docs</a>
+        <span class="docs-breadcrumb-sep">/</span>
+        <span>Usage</span>
+      </div>
+
+      <h1>Usage</h1>
+
+      <p>VoiceUse provides two primary interaction modes: <strong>hotkey activation</strong> and <strong>wake word activation</strong>.</p>
+
+      <h2>Activating VoiceUse</h2>
+
+      <h3>Hotkey Mode (Default)</h3>
+
+      <p>Hold <kbd>Right Ctrl</kbd> and speak your command. Release the key to submit.</p>
+
+      <pre><code>[Hold Right Ctrl] → "Open Chrome and navigate to github.com" → [Release]</code></pre>
+
+      <h3>Wake Word Mode</h3>
+
+      <p>Say the wake word (default: <strong>"Computer"</strong>), then speak your command. Voice Activity Detection (VAD) automatically detects when you stop speaking and submits.</p>
+
+      <pre><code>"Computer, open my email"</code></pre>
+
+      <div class="docs-callout tip">
+        <div class="docs-callout-title">Tip</div>
+        <p>Built-in free keywords: <code>computer</code>, <code>jarvis</code>, <code>alexa</code>, <code>americano</code>, <code>blueberry</code>, <code>bumblebee</code>, <code>grapefruit</code>, <code>grasshopper</code>, <code>picovoice</code>, <code>porcupine</code>, <code>terminator</code>.</p>
+      </div>
+
+      <h2>Common Commands</h2>
+
+      <h3>Window Management</h3>
+
+      <table>
+        <thead><tr><th>Say</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>"Open Chrome"</td><td>Launches or focuses Chrome</td></tr>
+          <tr><td>"Focus VS Code"</td><td>Brings VS Code to front</td></tr>
+          <tr><td>"Minimize the current window"</td><td>Minimizes active window</td></tr>
+          <tr><td>"Close this window"</td><td>Closes active window (with confirmation)</td></tr>
+          <tr><td>"Move the window to the left monitor"</td><td>Moves window to specified monitor</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Typing</h3>
+
+      <table>
+        <thead><tr><th>Say</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>"Type hello world"</td><td>Types "hello world" at cursor</td></tr>
+          <tr><td>"Press enter"</td><td>Simulates Enter key</td></tr>
+          <tr><td>"Press control C"</td><td>Simulates Ctrl+C</td></tr>
+          <tr><td>"Paste"</td><td>Simulates Ctrl+V</td></tr>
+        </tbody>
+      </table>
+
+      <div class="docs-callout tip">
+        <div class="docs-callout-title">Unicode Support</div>
+        <p>For complex Unicode text, VoiceUse uses <code>pyperclip</code> to paste through the clipboard rather than simulating individual keystrokes.</p>
+      </div>
+
+      <h3>Clicking UI Elements</h3>
+
+      <table>
+        <thead><tr><th>Say</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>"Click the submit button"</td><td>Finds and clicks button by description</td></tr>
+          <tr><td>"Click the menu icon in the top left"</td><td>Uses vision + description</td></tr>
+          <tr><td>"Click the red delete button"</td><td>Color + text description</td></tr>
+        </tbody>
+      </table>
+
+      <p>The vision system takes a screenshot and uses either <strong>Codex CLI</strong> or <strong>Anthropic Computer Use API</strong> to locate the described element.</p>
+
+      <h3>Screenshots</h3>
+
+      <table>
+        <thead><tr><th>Say</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>"Take a screenshot"</td><td>Captures full primary monitor</td></tr>
+          <tr><td>"Screenshot the current window"</td><td>Captures active window only</td></tr>
+          <tr><td>"Screenshot the Chrome window"</td><td>Captures specific window</td></tr>
+        </tbody>
+      </table>
+
+      <h3>System Commands</h3>
+
+      <table>
+        <thead><tr><th>Say</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>"Run git status"</td><td>Executes <code>git status</code> in terminal</td></tr>
+          <tr><td>"List files"</td><td>Executes <code>ls</code> / <code>dir</code></td></tr>
+        </tbody>
+      </table>
+
+      <div class="docs-callout warning">
+        <div class="docs-callout-title">Command Safety</div>
+        <p>System commands run through an allow-list. Unknown commands are blocked with an error message. Destructive commands trigger spoken confirmation.</p>
+      </div>
+
+      <h3>Web Browsing</h3>
+
+      <table>
+        <thead><tr><th>Say</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>"Open github.com"</td><td>Opens URL in preferred browser</td></tr>
+          <tr><td>"Search for Python tutorials"</td><td>Opens search in preferred browser</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Multi-Step Commands</h2>
+
+      <p>The LLM can plan and execute multi-step actions from a single voice command:</p>
+
+      <pre><code>"Open Chrome, go to github.com, and click the sign in button"</code></pre>
+
+      <p>The Brain orchestrator breaks this down into:</p>
+
+      <ol>
+        <li><code>open_app("Chrome")</code></li>
+        <li><code>open_url("github.com")</code></li>
+        <li><code>click_element("sign in button", "Chrome")</code></li>
+      </ol>
+
+      <h2>Understanding Responses</h2>
+
+      <p>VoiceUse speaks back through TTS to confirm actions:</p>
+
+      <table>
+        <thead><tr><th>Tone</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>Neutral confirmation</td><td>Action completed successfully</td></tr>
+          <tr><td>Error tone</td><td>Something went wrong (details spoken)</td></tr>
+          <tr><td>Question tone</td><td>Asking for confirmation on destructive action</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Command-Line Options</h2>
+
+      <pre><code># Normal run
+voiceuse
+
+# Dry-run mode (mock responses, no API calls)
+voiceuse --dry-run
+
+# Check dependencies
+voiceuse --check-install
+
+# Enable file logging
+voiceuse --log-file voiceuse.log
+
+# Verbose debug output
+voiceuse --verbose
+
+# Show help
+voiceuse --help</code></pre>
+
+      <h2>Tips for Best Results</h2>
+
+      <ol>
+        <li><strong>Speak clearly</strong> — Whisper is accurate but works best with clear speech</li>
+        <li><strong>Use app aliases</strong> — Configure nicknames for frequently used apps</li>
+        <li><strong>Describe UI elements precisely</strong> — "the blue submit button" works better than "the button"</li>
+        <li><strong>Good lighting</strong> — Vision clicking works better with well-lit screens</li>
+        <li><strong>Reduce monitor scaling</strong> — High DPI scaling can reduce vision accuracy</li>
+      </ol>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="logo-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+          </span>
+          <span>VoiceUse</span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/jarmen423/voice-computer-use-agent" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/issues" target="_blank" rel="noopener">Issues</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+        </div>
+        <p class="footer-copy">Open source under MIT License. Built by VoiceUse contributors.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../script.js"></script>
+</body>
+</html>

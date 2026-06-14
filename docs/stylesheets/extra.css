@@ -1,0 +1,86 @@
+/* VoiceUse Docs Custom Styles */
+
+:root {
+  --voiceuse-cyan: #00f0ff;
+  --voiceuse-cyan-dim: rgba(0, 240, 255, 0.1);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Code blocks */
+.md-typeset code {
+  border-radius: 4px;
+  padding: 0.15em 0.4em;
+}
+
+.md-typeset pre > code {
+  border-radius: 8px;
+  padding: 1em;
+}
+
+/* Tables */
+.md-typeset table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.md-typeset table th {
+  background: var(--voiceuse-cyan-dim);
+  font-weight: 600;
+}
+
+/* Admonitions */
+.md-typeset .admonition {
+  border-radius: 8px;
+}
+
+/* Tabs */
+.md-typeset .tabbed-set {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Mermaid diagrams */
+.mermaid {
+  background: transparent !important;
+}
+
+/* Search highlight */
+.md-search-result mark {
+  background: var(--voiceuse-cyan-dim);
+  color: var(--voiceuse-cyan);
+}
+
+/* Header anchor links */
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  font-weight: 600;
+}
+
+/* Links */
+.md-typeset a {
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.md-typeset a:hover {
+  border-bottom-color: currentColor;
+}

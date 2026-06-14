@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Safety &amp; Security — VoiceUse Docs</title>
+  <meta name="description" content="VoiceUse safety features and security documentation.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="../index.html" class="logo">
+        <span class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+        </span>
+        <span class="logo-text">VoiceUse</span>
+      </a>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="../index.html#features">Features</a></li>
+        <li><a href="../index.html#how-it-works">How It Works</a></li>
+        <li><a href="../index.html#downloads">Download</a></li>
+        <li><a href="../index.html#plugins">Plugins</a></li>
+        <li><a href="../index.html#safety">Safety</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="https://github.com/jarmen423/voice-computer-use-agent" target="_blank" rel="noopener" class="nav-cta">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="docs-sidebar-title">Documentation</div>
+      <nav class="docs-nav">
+        <a href="index.html">Getting Started</a>
+        <a href="installation.html">Installation</a>
+        <a href="configuration.html">Configuration</a>
+        <a href="usage.html">Usage</a>
+        <a href="plugins.html">Plugins</a>
+        <a href="safety.html" class="active">Safety</a>
+        <a href="troubleshooting.html">Troubleshooting</a>
+        <a href="development.html">Development</a>
+        <a href="architecture.html">Architecture</a>
+      </nav>
+    </aside>
+
+    <main class="docs-content">
+      <div class="docs-breadcrumb">
+        <a href="../index.html">VoiceUse</a>
+        <span class="docs-breadcrumb-sep">/</span>
+        <a href="index.html">Docs</a>
+        <span class="docs-breadcrumb-sep">/</span>
+        <span>Safety</span>
+      </div>
+
+      <h1>Safety &amp; Security</h1>
+
+      <p>VoiceUse implements multiple layers of safety to protect your system from accidental or malicious voice commands.</p>
+
+      <h2>Spoken Confirmation</h2>
+
+      <p>Before any destructive action, VoiceUse:</p>
+
+      <ol>
+        <li><strong>Speaks a confirmation prompt</strong> — e.g., "You asked me to close the window. Should I proceed?"</li>
+        <li><strong>Listens for your response</strong> — Waits for spoken confirmation</li>
+        <li><strong>Acts on your answer</strong>:
+          <ul>
+            <li><strong>Proceeds</strong> on: <code>yes</code>, <code>yep</code>, <code>yeah</code>, <code>sure</code></li>
+            <li><strong>Cancels</strong> on: <code>no</code>, <code>nope</code>, <code>cancel</code>, timeout (10s), or any other response</li>
+          </ul>
+        </li>
+      </ol>
+
+      <h2>Destructive Keyword Detection</h2>
+
+      <p>The following keywords trigger confirmation:</p>
+
+      <pre><code>safety:
+  destructive_keywords:
+    - close
+    - quit
+    - delete
+    - remove
+    - kill
+    - terminate
+    - shutdown
+    - reboot
+    - format
+    - rm -rf
+    - type password
+    - enter password
+    - input password</code></pre>
+
+      <p>You can customize this list in your <code>config.yaml</code>.</p>
+
+      <h2>Shell Command Allow-List</h2>
+
+      <p>System commands run through an allow-list by default. Unknown commands are <strong>blocked</strong> with an error message.</p>
+
+      <div class="docs-callout danger">
+        <div class="docs-callout-title">Default Policy</div>
+        <p>By default, <code>shell=False</code> is used. Commands not in the allow-list are rejected. This prevents accidental execution of dangerous commands.</p>
+      </div>
+
+      <h2>Audit Logging</h2>
+
+      <p>Every tool call is logged to an audit trail:</p>
+
+      <pre><code># Logged automatically
+tool_name: "open_app"
+arguments: {"app_name": "Chrome"}
+result: "success"
+timestamp: "2024-01-15T10:30:00Z"</code></pre>
+
+      <p>Audit logs help you review what VoiceUse did and debug issues.</p>
+
+      <h2>Password Protection</h2>
+
+      <p>VoiceUse explicitly detects password entry attempts:</p>
+
+      <ul>
+        <li><code>"type password"</code></li>
+        <li><code>"enter password"</code></li>
+        <li><code>"input password"</code></li>
+      </ul>
+
+      <p>These always trigger confirmation and are logged.</p>
+
+      <h2>Best Practices</h2>
+
+      <ol>
+        <li><strong>Review your config</strong> — Check <code>destructive_keywords</code> matches your workflow</li>
+        <li><strong>Start with <code>--dry-run</code></strong> — Test without API calls first</li>
+        <li><strong>Monitor audit logs</strong> — Regularly check what actions were taken</li>
+        <li><strong>Use aliases</strong> — Prevent STT errors from resolving to dangerous app names</li>
+        <li><strong>Keep API keys secure</strong> — Use environment variables, never commit keys</li>
+      </ol>
+
+      <h2>Reporting Security Issues</h2>
+
+      <p>If you discover a security vulnerability, please open an issue on <a href="https://github.com/jarmen423/voice-computer-use-agent/issues">GitHub</a> or contact the maintainers directly.</p>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="logo-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+          </span>
+          <span>VoiceUse</span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/jarmen423/voice-computer-use-agent" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/issues" target="_blank" rel="noopener">Issues</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+        </div>
+        <p class="footer-copy">Open source under MIT License. Built by VoiceUse contributors.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="../script.js"></script>
+</body>
+</html>

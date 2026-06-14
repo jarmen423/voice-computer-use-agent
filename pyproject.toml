@@ -70,6 +70,12 @@ anthropic = [
 grok = [
     "websockets>=12.0",
 ]
+docs = [
+    "mkdocs-material>=9.0.0",
+    "mkdocs-minify-plugin>=0.7.0",
+    "pygments>=2.16.0",
+    "pymdown-extensions>=10.0.0",
+]
 all = [
     "groq>=0.9.0",
     "openai>=1.30.0",
@@ -114,8 +120,11 @@ exclude = [
     "/backend",
     "/build",
     "/dist",
+    "/landing-page",
     "/logs",
     "/scratch.md",
+    "/site",
+    "/.github/workflows/deploy-pages.yml",
     "/.env",
 ]
 

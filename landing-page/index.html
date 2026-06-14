@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoiceUse — Hands-Free Desktop Voice Agent</title>
+  <meta name="description" content="VoiceUse is a local desktop voice agent that controls your OS hands-free. STT, LLM orchestration, TTS, computer vision, and safety guards — all running natively on your machine.">
+  <meta property="og:title" content="VoiceUse — Hands-Free Desktop Voice Agent">
+  <meta property="og:description" content="Control your computer with your voice. Local desktop agent with STT, LLM, TTS, and computer vision.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://github.com/jarmen423/voice-computer-use-agent">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#" class="logo">
+        <span class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+        </span>
+        <span class="logo-text">VoiceUse</span>
+      </a>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how-it-works">How It Works</a></li>
+        <li><a href="#downloads">Download</a></li>
+        <li><a href="#plugins">Plugins</a></li>
+        <li><a href="#safety">Safety</a></li>
+        <li><a href="docs/index.html">Docs</a></li>
+        <li><a href="https://github.com/jarmen423/voice-computer-use-agent" target="_blank" rel="noopener" class="nav-cta">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <section class="hero" id="hero">
+    <div class="hero-bg">
+      <div class="grid-overlay"></div>
+      <canvas id="voiceWave"></canvas>
+    </div>
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        <span>v0.1.3 — Now Available</span>
+      </div>
+      <h1 class="hero-title">
+        <span class="line">Control Your Computer</span>
+        <span class="line accent">With Your Voice</span>
+      </h1>
+      <p class="hero-subtitle">
+        A local desktop voice agent that runs natively on your machine. 
+        Speak commands, get results. No clicking required.
+      </p>
+      <div class="hero-actions">
+        <a href="#downloads" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download
+        </a>
+        <a href="https://github.com/jarmen423/voice-computer-use-agent" target="_blank" rel="noopener" class="btn btn-secondary">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          Star on GitHub
+        </a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-value">3</span>
+          <span class="stat-label">Platforms</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value">2</span>
+          <span class="stat-label">Vision Providers</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value">∞</span>
+          <span class="stat-label">Possibilities</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-scroll">
+      <a href="#features" aria-label="Scroll to features">
+        <span class="mouse"><span class="wheel"></span></span>
+      </a>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Capabilities</span>
+        <h2 class="section-title">Everything You Need</h2>
+        <p class="section-desc">VoiceUse combines speech recognition, AI reasoning, and system control into a single seamless experience.</p>
+      </div>
+      <div class="features-grid">
+        <article class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+          </div>
+          <h3>Wake Word &amp; Hotkey</h3>
+          <p>Activate with "Computer" or hold Right Ctrl. Voice Activity Detection knows when you stop speaking.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <h3>Fast STT</h3>
+          <p>Groq Whisper transcribes your speech in milliseconds. Runs off the main thread so the UI never freezes.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <h3>Cross-Platform OS Control</h3>
+          <p>Windows, macOS, and Linux support for window management, typing, screenshots, and multi-monitor setups.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/><line x1="14.83" y1="9.17" x2="18.36" y2="5.64"/><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/></svg>
+          </div>
+          <h3>Computer Vision</h3>
+          <p>Click UI elements described in natural language. Powered by Codex CLI or Anthropic Computer Use API.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+          </div>
+          <h3>Speaks Back</h3>
+          <p>edge-tts and pyttsx3 with multi-backend playback. Confirms actions, reports errors, and keeps you informed.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Safety Guard</h3>
+          <p>Destructive actions trigger spoken confirmation. Keyword detection + allow-lists keep your system safe.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="how-it-works" id="how-it-works">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Architecture</span>
+        <h2 class="section-title">How It Works</h2>
+        <p class="section-desc">A streamlined pipeline from voice to action.</p>
+      </div>
+      <div class="pipeline">
+        <div class="pipeline-step">
+          <div class="step-number">01</div>
+          <div class="step-content">
+            <h3>Speak</h3>
+            <p>Hold the hotkey or say the wake word. Speak naturally — VAD detects when you finish.</p>
+          </div>
+          <div class="step-arrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-number">02</div>
+          <div class="step-content">
+            <h3>Transcribe</h3>
+            <p>Groq Whisper converts speech to text with high accuracy, running asynchronously.</p>
+          </div>
+          <div class="step-arrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-number">03</div>
+          <div class="step-content">
+            <h3>Reason</h3>
+            <p>LLM orchestrator plans actions. Groq primary, with OpenAI or Cerebras fallback for reliability.</p>
+          </div>
+          <div class="step-arrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-number">04</div>
+          <div class="step-content">
+            <h3>Act</h3>
+            <p>Execute window commands, type text, take screenshots, or click UI elements via vision.</p>
+          </div>
+          <div class="step-arrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-number">05</div>
+          <div class="step-content">
+            <h3>Respond</h3>
+            <p>TTS speaks the result. You hear confirmations, errors, and status updates in real time.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="downloads" id="downloads">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Get Started</span>
+        <h2 class="section-title">Download VoiceUse</h2>
+        <p class="section-desc">Choose your platform. No Python install required — these are standalone executables built with PyInstaller.</p>
+      </div>
+      <div class="download-cards">
+        <article class="download-card">
+          <div class="download-platform">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+            <span>Windows</span>
+          </div>
+          <div class="download-info">
+            <span class="download-version">v0.1.3</span>
+            <span class="download-size">~45 MB .exe</span>
+          </div>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/releases/download/v0.1.3/VoiceUse-Windows-x64.exe" class="btn btn-download" download>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download for Windows
+          </a>
+        </article>
+        <article class="download-card">
+          <div class="download-platform">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            <span>macOS</span>
+          </div>
+          <div class="download-info">
+            <span class="download-version">v0.1.3</span>
+            <span class="download-size">~52 MB .app</span>
+          </div>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/releases/download/v0.1.3/VoiceUse-macOS-universal.app.zip" class="btn btn-download" download>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download for macOS
+          </a>
+        </article>
+        <article class="download-card">
+          <div class="download-platform">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M12.504 0c-.155 0-.315.008-.48.021-1.2.097-2.49.833-3.248 1.993-.63.97-1.007 2.264-.837 3.53.34 2.292 2.239 3.87 4.423 3.87 1.379 0 2.535-.711 3.349-1.723.88-1.093 1.267-2.56.928-4.04-.34-1.48-1.366-2.62-2.66-3.166-.65-.27-1.326-.408-1.996-.408-.16 0-.32.008-.48.021v.002zm-4.8 7.488c-2.554.153-4.87 1.724-5.805 4.08-.626 1.518-.626 3.238.072 4.714.698 1.476 2.056 2.606 3.672 3.072 1.616.466 3.382.195 4.838-.726 1.456-.92 2.472-2.446 2.77-4.152.299-1.706-.195-3.484-1.346-4.848-1.151-1.364-2.88-2.177-4.704-2.177-.166 0-.332.008-.498.024v.012zm14.832.624c-2.47.147-4.74 1.59-5.79 3.71-.597 1.182-.77 2.538-.498 3.83.272 1.292.928 2.47 1.86 3.35.933.88 2.11 1.44 3.38 1.61 1.27.17 2.57-.06 3.71-.65 1.14-.59 2.09-1.53 2.69-2.67.6-1.14.81-2.46.59-3.74-.22-1.28-.81-2.47-1.68-3.39-.87-.92-2.01-1.55-3.27-1.79-.26-.05-.52-.08-.78-.08-.07 0-.14.01-.21.01v-.13zm-15.216 8.4c-1.918.114-3.696 1.188-4.68 2.862-.606 1.03-.84 2.23-.666 3.398.174 1.168.714 2.244 1.524 3.06.81.816 1.86 1.356 3.03 1.53 1.17.174 2.37-.06 3.4-.666 1.03-.606 1.836-1.53 2.274-2.61.438-1.08.498-2.28.168-3.396-.33-1.116-1.026-2.1-1.968-2.784-.942-.684-2.082-1.044-3.252-1.044-.156 0-.312.008-.468.024l-.362.226z"/></svg>
+            <span>Linux</span>
+          </div>
+          <div class="download-info">
+            <span class="download-version">v0.1.3</span>
+            <span class="download-size">~48 MB binary</span>
+          </div>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/releases/download/v0.1.3/VoiceUse-Linux-x86_64" class="btn btn-download" download>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download for Linux
+          </a>
+        </article>
+      </div>
+      <div class="download-alt">
+        <p>Prefer the command line? Install via <code>pipx</code> or <code>uv</code>:</p>
+        <div class="code-block">
+          <pre><code id="pipxCode">pipx install "voice-computer-use-agent[all]"</code></pre>
+          <button class="copy-btn" data-target="pipxCode" aria-label="Copy pipx command">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+        <p class="download-alt-links">
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/releases" target="_blank" rel="noopener">All releases</a>
+          <span class="dot-separator">·</span>
+          <a href="#" id="showInstall">More install options</a>
+        </p>
+      </div>
+      <div class="install-options" id="installOptions" style="display:none;">
+        <div class="code-block">
+          <pre><code id="uvCode">uv tool install "voice-computer-use-agent[all]"</code></pre>
+          <button class="copy-btn" data-target="uvCode" aria-label="Copy uv command">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+        <div class="code-block">
+          <pre><code id="devCode">pip install -e ".[dev]"</code></pre>
+          <button class="copy-btn" data-target="devCode" aria-label="Copy dev install command">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="plugins" id="plugins">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Extensible</span>
+        <h2 class="section-title">Plugin Architecture</h2>
+        <p class="section-desc">Replace or extend entire subsystems. Mix and match providers to suit your workflow.</p>
+      </div>
+      <div class="plugins-showcase">
+        <div class="plugin-highlight">
+          <div class="plugin-visual">
+            <div class="plugin-wave">
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+          <div class="plugin-info">
+            <span class="plugin-badge">Built-in</span>
+            <h3>Grok Voice Plugin</h3>
+            <p>Replace the entire STT→LLM→TTS pipeline with a single xAI Realtime API WebSocket connection. Stream 24 kHz PCM audio end-to-end for ultra-low latency voice interaction.</p>
+            <ul class="plugin-features">
+              <li>Server-side VAD with interruption support</li>
+              <li>Multiple voice personalities (Eve, Ara, Leo, Rex, Sal)</li>
+              <li>Same OS control tools as the default pipeline</li>
+              <li>grok-voice-think-fast-1.0 model</li>
+            </ul>
+          </div>
+        </div>
+        <div class="plugin-grid">
+          <div class="plugin-mini">
+            <h4>STT Providers</h4>
+            <p>Groq Whisper (default)</p>
+          </div>
+          <div class="plugin-mini">
+            <h4>LLM Providers</h4>
+            <p>Groq, OpenAI, Cerebras</p>
+          </div>
+          <div class="plugin-mini">
+            <h4>TTS Providers</h4>
+            <p>edge-tts, pyttsx3</p>
+          </div>
+          <div class="plugin-mini">
+            <h4>Vision Providers</h4>
+            <p>Codex CLI, Anthropic</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="safety" id="safety">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Protection</span>
+        <h2 class="section-title">Safety First</h2>
+        <p class="section-desc">Your system is protected by multiple layers of safeguards.</p>
+      </div>
+      <div class="safety-grid">
+        <div class="safety-card">
+          <div class="safety-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Spoken Confirmation</h3>
+          <p>Before any destructive action — close, quit, delete, shutdown — the agent speaks a confirmation prompt and waits for your verbal response.</p>
+        </div>
+        <div class="safety-card">
+          <div class="safety-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <h3>Keyword Detection</h3>
+          <p>Configurable destructive keyword list: close, quit, delete, remove, kill, terminate, shutdown, reboot, format, rm -rf, and password entry.</p>
+        </div>
+        <div class="safety-card">
+          <div class="safety-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <h3>Shell Allow-List</h3>
+          <p>System commands run through an allow-list by default. Unknown commands are blocked with an error message, not executed silently.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta" id="cta">
+    <div class="container">
+      <div class="cta-content">
+        <h2>Ready to Go Hands-Free?</h2>
+        <p>Join the growing community of developers controlling their desktops with voice.</p>
+        <div class="cta-actions">
+          <a href="#downloads" class="btn btn-primary btn-large">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download v0.1.3
+          </a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent" target="_blank" rel="noopener" class="btn btn-secondary btn-large">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            Star on GitHub
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="logo-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+          </span>
+          <span>VoiceUse</span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/jarmen423/voice-computer-use-agent" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/issues" target="_blank" rel="noopener">Issues</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/jarmen423/voice-computer-use-agent/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+        </div>
+        <p class="footer-copy">Open source under MIT License. Built by VoiceUse contributors.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
+
+
+
+
