@@ -115,6 +115,35 @@ python -m voiceuse --help
 voiceuse --help
 ```
 
+## Documentation
+
+Public docs are served at <https://computer-use.agentmemorylabs.com/docs/> via
+Cloudflare Pages and use the same custom styling as the landing page.
+
+- Source Markdown lives in `docs/`.
+- `docs/private/` is for personal notes — it is **not** listed in the docs build
+  so it never gets published.
+- `scripts/build_landing_docs.py` converts `docs/*.md` into the custom HTML pages
+  in `landing-page/docs/`.
+- `.github/workflows/deploy-pages.yml` runs the converter and deploys the
+  `landing-page/` directory on every push to `main` that touches `docs/`,
+  `scripts/build_landing_docs.py`, or `landing-page/`.
+
+To preview locally:
+
+```bash
+python scripts/build_landing_docs.py
+```
+
+Then open `landing-page/docs/index.html` in a browser.
+
+`landing-page/docs/` is generated output. The CI build regenerates it during
+deploy, so it does not need to be committed (and is ignored by `.gitignore`).
+
+The legacy GitHub Pages deployment (`gh-pages` branch at
+`jarmen423.github.io/voice-computer-use-agent/`) should be disabled in the
+repository settings and the `gh-pages` branch deleted.
+
 ## Adding a New Plugin
 
 1. Create a new directory under `voiceuse/plugins/<my_plugin>/`.

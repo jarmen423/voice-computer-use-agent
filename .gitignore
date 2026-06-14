@@ -47,3 +47,6 @@ config.yaml
 .env
 site/
 .wrangler/
+
+# Generated docs output (built by scripts/build_landing_docs.py)
+landing-page/docs/
