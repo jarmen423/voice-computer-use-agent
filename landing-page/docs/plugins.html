@@ -4,12 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Plugins — VoiceUse Docs</title>
-  <meta name="description" content="VoiceUse plugin architecture and Grok Voice plugin documentation.">
+  <meta name="description" content="VoiceUse uses a replace-mode plugin architecture. When a plugin is enabled, it fully replaces the default Brain + InputManager STT + TTSManager pipeline.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 <body>
   <nav class="nav" id="nav">
@@ -39,53 +38,49 @@
     <aside class="docs-sidebar">
       <div class="docs-sidebar-title">Documentation</div>
       <nav class="docs-nav">
-        <a href="index.html">Getting Started</a>
-        <a href="installation.html">Installation</a>
-        <a href="configuration.html">Configuration</a>
-        <a href="usage.html">Usage</a>
-        <a href="plugins.html" class="active">Plugins</a>
-        <a href="safety.html">Safety</a>
-        <a href="troubleshooting.html">Troubleshooting</a>
-        <a href="development.html">Development</a>
-        <a href="architecture.html">Architecture</a>
+<a href="index.html">Getting Started</a>
+<a href="installation.html">Installation</a>
+<a href="configuration.html">Configuration</a>
+<a href="usage.html">Usage</a>
+<a href="plugins.html" class="active">Plugins</a>
+<a href="safety.html">Safety</a>
+<a href="troubleshooting.html">Troubleshooting</a>
+<a href="development.html">Development</a>
+<a href="architecture.html">Architecture</a>
       </nav>
     </aside>
 
     <main class="docs-content">
       <div class="docs-breadcrumb">
-        <a href="../index.html">VoiceUse</a>
-        <span class="docs-breadcrumb-sep">/</span>
-        <a href="index.html">Docs</a>
-        <span class="docs-breadcrumb-sep">/</span>
-        <span>Plugins</span>
+<a href="../index.html">VoiceUse</a>
+<span class="docs-breadcrumb-sep">/</span>
+<a href="index.html">Docs</a>
+<span class="docs-breadcrumb-sep">/</span>
+<span>Plugins</span>
       </div>
 
-      <h1>Plugins</h1>
-
-      <p>VoiceUse uses a <strong>replace-mode plugin architecture</strong>. When a plugin is enabled, it fully replaces the default Brain + InputManager STT + TTSManager pipeline. Plugins share the same OS control, vision, safety, and audit layers.</p>
-
-      <h2>Grok Voice Plugin</h2>
-
-      <p>The Grok Voice plugin uses the <strong>xAI Realtime API</strong> to stream audio end-to-end (STT + LLM + TTS in one WebSocket connection).</p>
-
-      <h3>Why Use Grok Voice?</h3>
-
-      <ul>
-        <li><strong>Ultra-low latency</strong> — Single WebSocket eliminates round-trips between STT→LLM→TTS</li>
-        <li><strong>Natural interruptions</strong> — Server-side VAD with interruption support</li>
-        <li><strong>Voice personalities</strong> — Multiple assistant voices to choose from</li>
-        <li><strong>24 kHz audio</strong> — Higher quality audio streaming</li>
-      </ul>
-
-      <h3>Enabling the Plugin</h3>
-
-      <p><strong>1.</strong> Set your xAI API key:</p>
-
-      <pre><code>export XAI_API_KEY="xai-..."</code></pre>
-
-      <p><strong>2.</strong> Edit <code>config.yaml</code>:</p>
-
-      <pre><code>plugins:
+<h1 id="plugins">Plugins</h1>
+<p>VoiceUse uses a <strong>replace-mode plugin architecture</strong>. When a plugin is enabled, it fully replaces the default Brain + InputManager STT + TTSManager pipeline. Plugins share the same OS control, vision, safety, and audit layers.</p>
+<h2 id="grok-voice-plugin">Grok Voice Plugin</h2>
+<p>The Grok Voice plugin uses the <strong>xAI Realtime API</strong> to stream audio end-to-end (STT + LLM + TTS in one WebSocket connection).</p>
+<h3 id="why-use-grok-voice">Why Use Grok Voice?</h3>
+<ul>
+<li><strong>Ultra-low latency</strong> — Single WebSocket eliminates round-trips between STT→LLM→TTS</li>
+<li><strong>Natural interruptions</strong> — Server-side VAD with interruption support</li>
+<li><strong>Voice personalities</strong> — Multiple assistant voices to choose from</li>
+<li><strong>24 kHz audio</strong> — Higher quality audio streaming</li>
+</ul>
+<h3 id="enabling-the-plugin">Enabling the Plugin</h3>
+<ol>
+<li>
+<p>Set your xAI API key:</p>
+<p><code>bash
+export XAI_API_KEY="xai-..."</code></p>
+</li>
+<li>
+<p>Edit <code>config.yaml</code>:</p>
+<p><code>yaml
+plugins:
   grok_voice:
     enabled: true
     api_key: null          # uses XAI_API_KEY env var
@@ -94,117 +89,195 @@
     instructions: "You are a desktop voice assistant..."
     sample_rate: 24000
     turn_detection_type: server_vad
-    input_audio_transcription_model: grok-2-audio</code></pre>
+    input_audio_transcription_model: grok-2-audio</code></p>
+</li>
+<li>
+<p>Run VoiceUse normally:</p>
+<p><code>bash
+voiceuse</code></p>
+</li>
+</ol>
+<h3 id="available-voices">Available Voices</h3>
+<table>
+<thead>
+<tr>
+<th>Voice</th>
+<th>Personality</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Eve</code></td>
+<td>Warm, conversational</td>
+</tr>
+<tr>
+<td><code>Ara</code></td>
+<td>Professional, concise</td>
+</tr>
+<tr>
+<td><code>Leo</code></td>
+<td>Energetic, enthusiastic</td>
+</tr>
+<tr>
+<td><code>Rex</code></td>
+<td>Direct, no-nonsense</td>
+</tr>
+<tr>
+<td><code>Sal</code></td>
+<td>Friendly, casual</td>
+</tr>
+</tbody>
+</table>
+<h3 id="plugin-architecture">Plugin Architecture</h3>
+<div class="mermaid">
+flowchart TB
+    App[Application] --> Plugin[GrokVoicePlugin]
+    Plugin --> Streamer[GrokAudioStreamer]
+    Plugin --> Client[XAIRealtimeClient]
+    Plugin --> Tools[tool_registry]
+    Plugin --> Safety[SafetyGuard]
+    
+    Streamer --> Mic[Microphone 24kHz]
+    Streamer --> Speaker[Playback]
+    Client --> XAI[xAI WebSocket]
+    XAI --> Client
+    Client -->|function calls| Plugin
+    
+    Tools --> OS[OSController]
+    Tools --> Vision[VisionBridge]
+</div>
 
-      <p><strong>3.</strong> Run VoiceUse normally:</p>
 
-      <pre><code>voiceuse</code></pre>
-
-      <h3>Available Voices</h3>
-
-      <table>
-        <thead><tr><th>Voice</th><th>Personality</th></tr></thead>
-        <tbody>
-          <tr><td><code>Eve</code></td><td>Warm, conversational</td></tr>
-          <tr><td><code>Ara</code></td><td>Professional, concise</td></tr>
-          <tr><td><code>Leo</code></td><td>Energetic, enthusiastic</td></tr>
-          <tr><td><code>Rex</code></td><td>Direct, no-nonsense</td></tr>
-          <tr><td><code>Sal</code></td><td>Friendly, casual</td></tr>
-        </tbody>
-      </table>
-
-      <h2>Provider Swapping</h2>
-
-      <p>Even without plugins, you can swap individual providers:</p>
-
-      <h3>STT Providers</h3>
-
-      <table>
-        <thead><tr><th>Provider</th><th>Model</th><th>Notes</th></tr></thead>
-        <tbody>
-          <tr><td><code>groq</code></td><td><code>whisper-large-v3</code></td><td>Default, fast, accurate</td></tr>
-        </tbody>
-      </table>
-
-      <h3>LLM Providers</h3>
-
-      <table>
-        <thead><tr><th>Provider</th><th>Models</th><th>Use Case</th></tr></thead>
-        <tbody>
-          <tr><td><code>groq</code></td><td><code>llama-3.3-70b-versatile</code></td><td>Default, fast inference</td></tr>
-          <tr><td><code>openai</code></td><td><code>gpt-4o</code>, <code>gpt-4o-mini</code></td><td>Reliable fallback</td></tr>
-          <tr><td><code>cerebras</code></td><td><code>llama-3.1-70b</code></td><td>Alternative fast inference</td></tr>
-        </tbody>
-      </table>
-
-      <h3>TTS Providers</h3>
-
-      <table>
-        <thead><tr><th>Provider</th><th>Voices</th><th>Notes</th></tr></thead>
-        <tbody>
-          <tr><td><code>edge</code></td><td><code>en-US-AriaNeural</code></td><td>Default, online, high quality</td></tr>
-          <tr><td><code>pyttsx3</code></td><td>System voices</td><td>Offline fallback</td></tr>
-        </tbody>
-      </table>
-
-      <h3>Vision Providers</h3>
-
-      <table>
-        <thead><tr><th>Provider</th><th>Auth</th><th>Notes</th></tr></thead>
-        <tbody>
-          <tr><td><code>codex</code></td><td>OAuth via <code>codex login</code></td><td>Default, no API key needed</td></tr>
-          <tr><td><code>anthropic</code></td><td><code>ANTHROPIC_API_KEY</code></td><td>Alternative provider</td></tr>
-        </tbody>
-      </table>
-
-      <h2>Creating a Custom Plugin</h2>
-
-      <p>To add a new plugin:</p>
-
-      <ol>
-        <li>Create a directory under <code>voiceuse/plugins/&lt;my_plugin&gt;/</code></li>
-        <li>Implement <code>PluginBase</code> in <code>plugin.py</code></li>
-        <li>Register in <code>voiceuse/plugins/__init__.py</code></li>
-        <li>Add config section in <code>voiceuse/config.py</code></li>
-        <li>Write tests in <code>tests/test_my_plugin.py</code></li>
-      </ol>
-
-      <h3>Plugin Interface</h3>
-
-      <p>Plugins must implement the <code>PluginBase</code> abstract class:</p>
-
-      <pre><code>from voiceuse.plugins.base import PluginBase
+<h2 id="provider-swapping">Provider Swapping</h2>
+<p>Even without plugins, you can swap individual providers:</p>
+<h3 id="stt-providers">STT Providers</h3>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Model</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>groq</code></td>
+<td><code>whisper-large-v3</code></td>
+<td>Default, fast, accurate</td>
+</tr>
+</tbody>
+</table>
+<h3 id="llm-providers">LLM Providers</h3>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Models</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>groq</code></td>
+<td><code>llama-3.3-70b-versatile</code></td>
+<td>Default, fast inference</td>
+</tr>
+<tr>
+<td><code>openai</code></td>
+<td><code>gpt-4o</code>, <code>gpt-4o-mini</code></td>
+<td>Reliable fallback</td>
+</tr>
+<tr>
+<td><code>cerebras</code></td>
+<td><code>llama-3.1-70b</code></td>
+<td>Alternative fast inference</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tts-providers">TTS Providers</h3>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Voices</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>edge</code></td>
+<td><code>en-US-AriaNeural</code></td>
+<td>Default, online, high quality</td>
+</tr>
+<tr>
+<td><code>pyttsx3</code></td>
+<td>System voices</td>
+<td>Offline fallback</td>
+</tr>
+</tbody>
+</table>
+<h3 id="vision-providers">Vision Providers</h3>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Auth</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>codex</code></td>
+<td>OAuth via <code>codex login</code></td>
+<td>Default, no API key needed</td>
+</tr>
+<tr>
+<td><code>anthropic</code></td>
+<td><code>ANTHROPIC_API_KEY</code></td>
+<td>Alternative provider</td>
+</tr>
+</tbody>
+</table>
+<h2 id="creating-a-custom-plugin">Creating a Custom Plugin</h2>
+<p>To add a new plugin:</p>
+<ol>
+<li>Create a directory under <code>voiceuse/plugins/&lt;my_plugin&gt;/</code></li>
+<li>Implement <code>PluginBase</code> in <code>plugin.py</code></li>
+<li>Register in <code>voiceuse/plugins/__init__.py</code></li>
+<li>Add config section in <code>voiceuse/config.py</code></li>
+<li>Write tests in <code>tests/test_my_plugin.py</code></li>
+</ol>
+<h3 id="plugin-interface">Plugin Interface</h3>
+<p>Plugins must implement the <code>PluginBase</code> abstract class:</p>
+<pre><code class="language-python">from voiceuse.plugins.base import PluginBase
 
 class MyPlugin(PluginBase):
     async def start(self):
-        """Initialize and begin the plugin loop."""
+        &quot;&quot;&quot;Initialize and begin the plugin loop.&quot;&quot;&quot;
         pass
 
     async def stop(self):
-        """Gracefully shutdown."""
-        pass</code></pre>
-
-      <h3>Thread → Async Bridge</h3>
-
-      <p>Background threads must use <code>asyncio.run_coroutine_threadsafe()</code>:</p>
-
-      <pre><code>import asyncio
+        &quot;&quot;&quot;Gracefully shutdown.&quot;&quot;&quot;
+        pass
+</code></pre>
+<h3 id="thread-async-bridge">Thread → Async Bridge</h3>
+<p>Background threads (hotkeys, wake word) must use <code>asyncio.run_coroutine_threadsafe()</code> to schedule async callbacks:</p>
+<pre><code class="language-python">import asyncio
 
 async def on_hotkey():
     await self.handle_activation()
 
 # From a background thread
-asyncio.run_coroutine_threadsafe(on_hotkey(), self.loop)</code></pre>
-
-      <h3>Safety Integration</h3>
-
-      <p>All plugins must apply <code>SafetyGuard.check_command()</code> before dispatching tool calls:</p>
-
-      <pre><code>from voiceuse.safety import SafetyGuard
+asyncio.run_coroutine_threadsafe(on_hotkey(), self.loop)
+</code></pre>
+<h3 id="safety-integration">Safety Integration</h3>
+<p>All plugins must apply <code>SafetyGuard.check_command()</code> before dispatching tool calls:</p>
+<pre><code class="language-python">from voiceuse.safety import SafetyGuard
 
 result = self.safety.check_command(tool_name, arguments)
 if not result.allowed:
-    return CommandResult.error(result.reason)</code></pre>
+    return CommandResult.error(result.reason)
+</code></pre>
     </main>
   </div>
 
@@ -229,6 +302,7 @@ if not result.allowed:
   </footer>
 
   <script src="../script.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <script>mermaid.initialize({ startOnLoad: true, theme: 'dark', themeVariables: { primaryColor: '#00f0ff', primaryTextColor: '#e8e8f0', primaryBorderColor: '#00f0ff', lineColor: '#6a6a80', secondaryColor: '#1a1a24', tertiaryColor: '#111118', fontFamily: 'JetBrains Mono' }});</script>
 </body>
 </html>

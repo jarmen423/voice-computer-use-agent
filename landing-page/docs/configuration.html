@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Configuration — VoiceUse Docs</title>
-  <meta name="description" content="VoiceUse configuration reference for config.yaml.">
+  <meta name="description" content="VoiceUse is configured through a config.yaml file in the working directory. A default file is generated automatically on first run if one doesn't exist.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -38,46 +38,41 @@
     <aside class="docs-sidebar">
       <div class="docs-sidebar-title">Documentation</div>
       <nav class="docs-nav">
-        <a href="index.html">Getting Started</a>
-        <a href="installation.html">Installation</a>
-        <a href="configuration.html" class="active">Configuration</a>
-        <a href="usage.html">Usage</a>
-        <a href="plugins.html">Plugins</a>
-        <a href="safety.html">Safety</a>
-        <a href="troubleshooting.html">Troubleshooting</a>
-        <a href="development.html">Development</a>
-        <a href="architecture.html">Architecture</a>
+<a href="index.html">Getting Started</a>
+<a href="installation.html">Installation</a>
+<a href="configuration.html" class="active">Configuration</a>
+<a href="usage.html">Usage</a>
+<a href="plugins.html">Plugins</a>
+<a href="safety.html">Safety</a>
+<a href="troubleshooting.html">Troubleshooting</a>
+<a href="development.html">Development</a>
+<a href="architecture.html">Architecture</a>
       </nav>
     </aside>
 
     <main class="docs-content">
       <div class="docs-breadcrumb">
-        <a href="../index.html">VoiceUse</a>
-        <span class="docs-breadcrumb-sep">/</span>
-        <a href="index.html">Docs</a>
-        <span class="docs-breadcrumb-sep">/</span>
-        <span>Configuration</span>
+<a href="../index.html">VoiceUse</a>
+<span class="docs-breadcrumb-sep">/</span>
+<a href="index.html">Docs</a>
+<span class="docs-breadcrumb-sep">/</span>
+<span>Configuration</span>
       </div>
 
-      <h1>Configuration</h1>
-
-      <p>VoiceUse is configured through a <code>config.yaml</code> file in the working directory. A default file is generated automatically on first run if one doesn't exist.</p>
-
-      <h2>Configuration File Location</h2>
-
-      <p>The config file is loaded from:</p>
-
-      <pre><code>./config.yaml          # current working directory</code></pre>
-
-      <h2>Full Configuration Reference</h2>
-
-      <pre><code># ============================================
+<h1 id="configuration">Configuration</h1>
+<p>VoiceUse is configured through a <code>config.yaml</code> file in the working directory. A default file is generated automatically on first run if one doesn't exist.</p>
+<h2 id="configuration-file-location">Configuration File Location</h2>
+<p>The config file is loaded from:</p>
+<pre><code>./config.yaml          # current working directory
+</code></pre>
+<h2 id="full-configuration-reference">Full Configuration Reference</h2>
+<pre><code class="language-yaml"># ============================================
 # Audio Settings
 # ============================================
 audio:
   sample_rate: 16000              # Audio capture sample rate
-  hotkey: "right ctrl"            # Key combination to hold for voice input
-  wake_word: "computer"           # Free Porcupine keyword
+  hotkey: &quot;right ctrl&quot;            # Key combination to hold for voice input
+  wake_word: &quot;computer&quot;           # Free Porcupine keyword (computer, jarvis, alexa, etc.)
   wake_word_model_path: null      # Custom wake word model file
 
 # ============================================
@@ -92,7 +87,7 @@ stt:
 # LLM Orchestration
 # ============================================
 llm:
-  provider: groq                  # Primary: groq, cerebras, or openai
+  provider: groq                  # Primary provider: groq, cerebras, or openai
   model: llama-3.3-70b-versatile  # Primary model
   api_key: null                   # Falls back to provider-specific env var
   fallback_provider: openai       # Fallback provider
@@ -113,7 +108,7 @@ tts:
 # ============================================
 computer_use:
   provider: codex                 # codex or anthropic
-  api_key: null                   # Only needed for anthropic
+  api_key: null                   # Only needed for anthropic; codex uses OAuth
 
 # ============================================
 # Agent Backend
@@ -121,15 +116,15 @@ computer_use:
 agent:
   backend: external_agent         # native or external_agent
   runner: codex_cli               # External runner implementation
-  command: codex
-  working_directory: "."
+  command: codex                  # Command to run
+  working_directory: &quot;.&quot;
   timeout_seconds: 300
   model: null
   sandbox: null
   skip_git_repo_check: true
 
 # ============================================
-# Safety & Confirmation
+# Safety &amp; Confirmation
 # ============================================
 safety:
   confirm_destructive: true       # Enable spoken confirmation
@@ -158,9 +153,9 @@ app:
   codex_app_name: Codex           # Codex window title
   dry_run: false                  # Mock mode (overridden by --dry-run)
   aliases:                        # Spoken name → exact app name
-    comet: "Comet Browser"
-    # vscode: "Visual Studio Code"
-    # edge: "Microsoft Edge"
+    comet: &quot;Comet Browser&quot;
+    # vscode: &quot;Visual Studio Code&quot;
+    # edge: &quot;Microsoft Edge&quot;
 
 # ============================================
 # Plugins
@@ -171,64 +166,74 @@ plugins:
     api_key: null                 # Falls back to XAI_API_KEY env var
     model: grok-voice-think-fast-1.0
     voice: Eve                    # Eve, Ara, Leo, Rex, Sal
-    instructions: "You are a desktop voice assistant..."
+    instructions: &quot;You are a desktop voice assistant...&quot;
     sample_rate: 24000
     turn_detection_type: server_vad
-    input_audio_transcription_model: grok-2-audio</code></pre>
+    input_audio_transcription_model: grok-2-audio
+</code></pre>
+<h2 id="environment-variables">Environment Variables</h2>
+<p>All <code>api_key: null</code> values in config fall back to environment variables:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Used By</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GROQ_API_KEY</code></td>
+<td>STT + primary LLM</td>
+</tr>
+<tr>
+<td><code>OPENAI_API_KEY</code></td>
+<td>Fallback LLM</td>
+</tr>
+<tr>
+<td><code>CEREBRAS_API_KEY</code></td>
+<td>Cerebras LLM</td>
+</tr>
+<tr>
+<td><code>ANTHROPIC_API_KEY</code></td>
+<td>Anthropic vision provider</td>
+</tr>
+<tr>
+<td><code>XAI_API_KEY</code></td>
+<td>Grok Voice plugin</td>
+</tr>
+<tr>
+<td><code>PORCUPINE_ACCESS_KEY</code></td>
+<td>Custom wake word models</td>
+</tr>
+</tbody>
+</table>
+<div class="docs-callout tip">
+<div class="docs-callout-title">Environment Setup</div>
+<p>Set these in your shell profile or a <code>.env</code> file loaded by your environment manager.</p>
+</div>
 
-      <h2>Environment Variables</h2>
-
-      <p>All <code>api_key: null</code> values in config fall back to environment variables:</p>
-
-      <table>
-        <thead>
-          <tr><th>Variable</th><th>Used By</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><code>GROQ_API_KEY</code></td><td>STT + primary LLM</td></tr>
-          <tr><td><code>OPENAI_API_KEY</code></td><td>Fallback LLM</td></tr>
-          <tr><td><code>CEREBRAS_API_KEY</code></td><td>Cerebras LLM</td></tr>
-          <tr><td><code>ANTHROPIC_API_KEY</code></td><td>Anthropic vision provider</td></tr>
-          <tr><td><code>XAI_API_KEY</code></td><td>Grok Voice plugin</td></tr>
-          <tr><td><code>PORCUPINE_ACCESS_KEY</code></td><td>Custom wake word models</td></tr>
-        </tbody>
-      </table>
-
-      <div class="docs-callout tip">
-        <div class="docs-callout-title">Tip</div>
-        <p>Set these in your shell profile or a <code>.env</code> file loaded by your environment manager. Never commit API keys to version control.</p>
-      </div>
-
-      <h2>App Aliases</h2>
-
-      <p>Aliases help the LLM resolve spoken nicknames to exact application names:</p>
-
-      <pre><code>app:
+<h2 id="app-aliases">App Aliases</h2>
+<p>Aliases help the LLM resolve spoken nicknames to exact application names:</p>
+<pre><code class="language-yaml">app:
   aliases:
-    vscode: "Visual Studio Code"
-    edge: "Microsoft Edge"
-    terminal: "Windows Terminal"</code></pre>
-
-      <p>This is especially useful when STT makes transcription errors. The LLM receives your open windows list plus aliases, so it can fuzzy-match "comment" to "Comet Browser".</p>
-
-      <h2>Backend Selection</h2>
-
-      <h3>Native Backend</h3>
-
-      <p>Uses the built-in Brain LLM orchestrator with direct tool dispatch:</p>
-
-      <pre><code>agent:
-  backend: native</code></pre>
-
-      <h3>External Agent Backend</h3>
-
-      <p>Sends desktop work to an MCP-capable action agent (e.g., Codex CLI):</p>
-
-      <pre><code>agent:
+    vscode: &quot;Visual Studio Code&quot;
+    edge: &quot;Microsoft Edge&quot;
+    terminal: &quot;Windows Terminal&quot;
+</code></pre>
+<p>This is especially useful when STT makes transcription errors. The LLM receives your open windows list plus aliases, so it can fuzzy-match "comment" to "Comet Browser".</p>
+<h2 id="backend-selection">Backend Selection</h2>
+<h3 id="native-backend">Native Backend</h3>
+<p>Uses the built-in Brain LLM orchestrator with direct tool dispatch:</p>
+<pre><code class="language-yaml">agent:
+  backend: native
+</code></pre>
+<h3 id="external-agent-backend">External Agent Backend</h3>
+<p>Sends desktop work to an MCP-capable action agent (e.g., Codex CLI):</p>
+<pre><code class="language-yaml">agent:
   backend: external_agent
-  runner: codex_cli</code></pre>
-
-      <p>VoiceUse acts as the voice shell; the external agent handles the observe-reason-act-verify loop.</p>
+  runner: codex_cli
+</code></pre>
+<p>VoiceUse acts as the voice shell; the external agent handles the observe-reason-act-verify loop.</p>
     </main>
   </div>
 

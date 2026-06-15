@@ -4,12 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Architecture — VoiceUse Docs</title>
-  <meta name="description" content="VoiceUse system architecture and component overview.">
+  <meta name="description" content="VoiceUse is built around a modular pipeline architecture with clear separation between voice input, LLM reasoning, system control, and output.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 <body>
   <nav class="nav" id="nav">
@@ -39,34 +38,31 @@
     <aside class="docs-sidebar">
       <div class="docs-sidebar-title">Documentation</div>
       <nav class="docs-nav">
-        <a href="index.html">Getting Started</a>
-        <a href="installation.html">Installation</a>
-        <a href="configuration.html">Configuration</a>
-        <a href="usage.html">Usage</a>
-        <a href="plugins.html">Plugins</a>
-        <a href="safety.html">Safety</a>
-        <a href="troubleshooting.html">Troubleshooting</a>
-        <a href="development.html">Development</a>
-        <a href="architecture.html" class="active">Architecture</a>
+<a href="index.html">Getting Started</a>
+<a href="installation.html">Installation</a>
+<a href="configuration.html">Configuration</a>
+<a href="usage.html">Usage</a>
+<a href="plugins.html">Plugins</a>
+<a href="safety.html">Safety</a>
+<a href="troubleshooting.html">Troubleshooting</a>
+<a href="development.html">Development</a>
+<a href="architecture.html" class="active">Architecture</a>
       </nav>
     </aside>
 
     <main class="docs-content">
       <div class="docs-breadcrumb">
-        <a href="../index.html">VoiceUse</a>
-        <span class="docs-breadcrumb-sep">/</span>
-        <a href="index.html">Docs</a>
-        <span class="docs-breadcrumb-sep">/</span>
-        <span>Architecture</span>
+<a href="../index.html">VoiceUse</a>
+<span class="docs-breadcrumb-sep">/</span>
+<a href="index.html">Docs</a>
+<span class="docs-breadcrumb-sep">/</span>
+<span>Architecture</span>
       </div>
 
-      <h1>Architecture</h1>
-
-      <p>VoiceUse is built around a modular pipeline architecture with clear separation between voice input, LLM reasoning, system control, and output.</p>
-
-      <h2>System Overview</h2>
-
-      <div class="mermaid">
+<h1 id="architecture">Architecture</h1>
+<p>VoiceUse is built around a modular pipeline architecture with clear separation between voice input, LLM reasoning, system control, and output.</p>
+<h2 id="system-overview">System Overview</h2>
+<div class="mermaid">
 flowchart LR
     subgraph Input[Input Layer]
         Hotkey[Hotkey / Wake Word]
@@ -102,116 +98,169 @@ flowchart LR
     Vision --> Desktop
     LLM --> TTS
     TTS --> Speaker
-      </div>
+</div>
 
-      <h2>Pipeline Flow</h2>
 
-      <ol>
-        <li><strong>Input</strong> — User activates via hotkey or wake word. Audio is captured until release/silence.</li>
-        <li><strong>STT</strong> — Groq Whisper transcribes speech to text asynchronously.</li>
-        <li><strong>Reasoning</strong> — LLM plans actions using tool schemas, desktop context, and conversation history.</li>
-        <li><strong>Safety</strong> — Destructive actions trigger spoken confirmation.</li>
-        <li><strong>Execution</strong> — Tools dispatch to OS Controller or Vision Bridge.</li>
-        <li><strong>Response</strong> — TTS speaks the result summary.</li>
-      </ol>
+<h2 id="pipeline-flow">Pipeline Flow</h2>
+<ol>
+<li><strong>Input</strong> — User activates via hotkey or wake word. Audio is captured until release/silence.</li>
+<li><strong>STT</strong> — Groq Whisper transcribes speech to text asynchronously.</li>
+<li><strong>Reasoning</strong> — LLM plans actions using tool schemas, desktop context, and conversation history.</li>
+<li><strong>Safety</strong> — Destructive actions trigger spoken confirmation.</li>
+<li><strong>Execution</strong> — Tools dispatch to OS Controller or Vision Bridge.</li>
+<li><strong>Response</strong> — TTS speaks the result summary.</li>
+</ol>
+<h2 id="core-components">Core Components</h2>
+<h3 id="inputmanager">InputManager</h3>
+<p>Handles all user input activation:</p>
+<ul>
+<li><strong>pynput</strong> hotkeys (hold Right Ctrl)</li>
+<li><strong>Porcupine</strong> wake word detection ("Computer")</li>
+<li><strong>webrtcvad</strong> voice activity detection</li>
+<li><strong>Groq Whisper</strong> speech-to-text transcription</li>
+</ul>
+<p>Runs audio work off the main async loop to prevent blocking.</p>
+<h3 id="brain">Brain</h3>
+<p>The LLM orchestrator that:</p>
+<ul>
+<li>Builds messages from system prompt, desktop context, and history</li>
+<li>Calls LLM with tool schemas</li>
+<li>Handles provider fallback (Groq → OpenAI → Cerebras)</li>
+<li>Manages conversation history</li>
+<li>Applies safety checks before tool dispatch</li>
+<li>Records action audit events</li>
+</ul>
+<h3 id="tool-registry">Tool Registry</h3>
+<p>Shared tool schemas and dispatch used by both Brain and plugins:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>open_app</code></td>
+<td>Launch or focus applications</td>
+</tr>
+<tr>
+<td><code>focus_window</code></td>
+<td>Bring window to front</td>
+</tr>
+<tr>
+<td><code>type_text</code></td>
+<td>Simulate keyboard input</td>
+</tr>
+<tr>
+<td><code>press_key</code></td>
+<td>Press specific keys</td>
+</tr>
+<tr>
+<td><code>click_element</code></td>
+<td>Vision-based UI clicking</td>
+</tr>
+<tr>
+<td><code>take_screenshot</code></td>
+<td>Capture screen/window</td>
+</tr>
+<tr>
+<td><code>run_system_command</code></td>
+<td>Execute shell commands</td>
+</tr>
+<tr>
+<td><code>open_url</code></td>
+<td>Open URLs in browser</td>
+</tr>
+<tr>
+<td><code>search_web</code></td>
+<td>Web search</td>
+</tr>
+</tbody>
+</table>
+<h3 id="oscontroller">OSController</h3>
+<p>Cross-platform desktop control facade:</p>
+<ul>
+<li><strong>Window management</strong> — pywin32 (Windows), xdotool (Linux), AppleScript (macOS)</li>
+<li><strong>Input simulation</strong> — pyautogui for mouse/keyboard</li>
+<li><strong>Screenshots</strong> — MSS for multi-monitor capture</li>
+<li><strong>System commands</strong> — Allow-listed shell execution</li>
+</ul>
+<h3 id="visionbridge">VisionBridge</h3>
+<p>Closed-loop computer vision for UI interaction:</p>
+<ol>
+<li>Capture screenshot of target window/monitor</li>
+<li>Send to vision provider (Codex CLI or Anthropic)</li>
+<li>Receive action JSON (click coordinates, key presses)</li>
+<li>Execute action via OSController</li>
+<li>Re-capture screenshot and repeat up to 5 steps</li>
+</ol>
+<p>This handles popups, loading delays, and misclicks through observation.</p>
+<h3 id="ttsmanager">TTSManager</h3>
+<p>Multi-backend text-to-speech with playback queue:</p>
+<ul>
+<li><strong>Primary:</strong> edge-tts (online, high quality)</li>
+<li><strong>Fallback:</strong> pyttsx3 (offline, system voices)</li>
+<li><strong>Playback:</strong> ffplay, mpv, or platform-native players</li>
+<li><strong>Cancellation:</strong> New user input cancels stale speech</li>
+</ul>
+<h2 id="state-machine">State Machine</h2>
+<p>The Application maintains explicit state transitions:</p>
+<div class="mermaid">
+stateDiagram-v2
+    [*] --> CREATED
+    CREATED --> INITIALISING
+    CREATED --> SHUTTING_DOWN
+    INITIALISING --> IDLE
+    INITIALISING --> SHUTTING_DOWN
 
-      <h2>Core Components</h2>
+    IDLE --> LISTENING
+    IDLE --> THINKING
+    IDLE --> SPEAKING
+    IDLE --> CONFIRMING
+    IDLE --> SHUTTING_DOWN
 
-      <h3>InputManager</h3>
+    LISTENING --> THINKING
+    LISTENING --> SPEAKING
+    LISTENING --> CONFIRMING
+    LISTENING --> IDLE
+    LISTENING --> SHUTTING_DOWN
 
-      <p>Handles all user input activation:</p>
+    THINKING --> ACTING
+    THINKING --> SPEAKING
+    THINKING --> CONFIRMING
+    THINKING --> IDLE
+    THINKING --> SHUTTING_DOWN
 
-      <ul>
-        <li><strong>pynput</strong> hotkeys (hold Right Ctrl)</li>
-        <li><strong>Porcupine</strong> wake word detection ("Computer")</li>
-        <li><strong>webrtcvad</strong> voice activity detection</li>
-        <li><strong>Groq Whisper</strong> speech-to-text transcription</li>
-      </ul>
+    ACTING --> THINKING
+    ACTING --> SPEAKING
+    ACTING --> IDLE
+    ACTING --> SHUTTING_DOWN
 
-      <p>Runs audio work off the main async loop to prevent blocking.</p>
+    SPEAKING --> IDLE
+    SPEAKING --> LISTENING
+    SPEAKING --> SHUTTING_DOWN
 
-      <h3>Brain</h3>
+    CONFIRMING --> THINKING
+    CONFIRMING --> IDLE
+    CONFIRMING --> SPEAKING
+    CONFIRMING --> SHUTTING_DOWN
 
-      <p>The LLM orchestrator that:</p>
+    SHUTTING_DOWN --> STOPPED
+    STOPPED --> [*]
+</div>
 
-      <ul>
-        <li>Builds messages from system prompt, desktop context, and history</li>
-        <li>Calls LLM with tool schemas</li>
-        <li>Handles provider fallback (Groq → OpenAI → Cerebras)</li>
-        <li>Manages conversation history</li>
-        <li>Applies safety checks before tool dispatch</li>
-        <li>Records action audit events</li>
-      </ul>
 
-      <h3>Tool Registry</h3>
-
-      <p>Shared tool schemas and dispatch used by both Brain and plugins:</p>
-
-      <table>
-        <thead><tr><th>Tool</th><th>Purpose</th></tr></thead>
-        <tbody>
-          <tr><td><code>open_app</code></td><td>Launch or focus applications</td></tr>
-          <tr><td><code>focus_window</code></td><td>Bring window to front</td></tr>
-          <tr><td><code>type_text</code></td><td>Simulate keyboard input</td></tr>
-          <tr><td><code>press_key</code></td><td>Press specific keys</td></tr>
-          <tr><td><code>click_element</code></td><td>Vision-based UI clicking</td></tr>
-          <tr><td><code>take_screenshot</code></td><td>Capture screen/window</td></tr>
-          <tr><td><code>run_system_command</code></td><td>Execute shell commands</td></tr>
-          <tr><td><code>open_url</code></td><td>Open URLs in browser</td></tr>
-          <tr><td><code>search_web</code></td><td>Web search</td></tr>
-        </tbody>
-      </table>
-
-      <h3>OSController</h3>
-
-      <p>Cross-platform desktop control facade:</p>
-
-      <ul>
-        <li><strong>Window management</strong> — pywin32 (Windows), xdotool (Linux), AppleScript (macOS)</li>
-        <li><strong>Input simulation</strong> — pyautogui for mouse/keyboard</li>
-        <li><strong>Screenshots</strong> — MSS for multi-monitor capture</li>
-        <li><strong>System commands</strong> — Allow-listed shell execution</li>
-      </ul>
-
-      <h3>VisionBridge</h3>
-
-      <p>Closed-loop computer vision for UI interaction:</p>
-
-      <ol>
-        <li>Capture screenshot of target window/monitor</li>
-        <li>Send to vision provider (Codex CLI or Anthropic)</li>
-        <li>Receive action JSON (click coordinates, key presses)</li>
-        <li>Execute action via OSController</li>
-        <li>Re-capture screenshot and repeat up to 5 steps</li>
-      </ol>
-
-      <p>This handles popups, loading delays, and misclicks through observation.</p>
-
-      <h3>TTSManager</h3>
-
-      <p>Multi-backend text-to-speech with playback queue:</p>
-
-      <ul>
-        <li><strong>Primary:</strong> edge-tts (online, high quality)</li>
-        <li><strong>Fallback:</strong> pyttsx3 (offline, system voices)</li>
-        <li><strong>Playback:</strong> ffplay, mpv, or platform-native players</li>
-        <li><strong>Cancellation:</strong> New user input cancels stale speech</li>
-      </ul>
-
-      <h2>MCP Integration</h2>
-
-      <p>VoiceUse exposes desktop control tools via MCP (Model Context Protocol):</p>
-
-      <pre><code># Register with Codex CLI
-codex mcp add voiceuse-computer-control -- voiceuse-computer-control-mcp</code></pre>
-
-      <p>This enables Codex and other MCP-capable agents to control the desktop through VoiceUse's OS layer.</p>
-
-      <h2>Plugin Architecture</h2>
-
-      <p>Plugins replace the default pipeline while sharing core services:</p>
-
-      <div class="mermaid">
+<p>States protect against invalid transitions (e.g., can't start listening while already thinking).</p>
+<h2 id="mcp-integration">MCP Integration</h2>
+<p>VoiceUse exposes desktop control tools via MCP (Model Context Protocol):</p>
+<pre><code class="language-bash"># Register with Codex CLI
+codex mcp add voiceuse-computer-control -- voiceuse-computer-control-mcp
+</code></pre>
+<p>This enables Codex and other MCP-capable agents to control the desktop through VoiceUse's OS layer.</p>
+<h2 id="plugin-architecture">Plugin Architecture</h2>
+<p>Plugins replace the default pipeline while sharing core services:</p>
+<div class="mermaid">
 flowchart TB
     subgraph Shared[Shared Core]
         ToolR[Tool Registry]
@@ -236,9 +285,10 @@ flowchart TB
 
     Default --> Shared
     GrokP --> Shared
-      </div>
+</div>
 
-      <p>The Grok Voice plugin demonstrates this: it replaces STT→Brain→TTS with a single xAI Realtime WebSocket while using the same tools, safety, and OS layers.</p>
+
+<p>The Grok Voice plugin demonstrates this: it replaces STT→Brain→TTS with a single xAI Realtime WebSocket while using the same tools, safety, and OS layers.</p>
     </main>
   </div>
 
@@ -263,6 +313,7 @@ flowchart TB
   </footer>
 
   <script src="../script.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
   <script>mermaid.initialize({ startOnLoad: true, theme: 'dark', themeVariables: { primaryColor: '#00f0ff', primaryTextColor: '#e8e8f0', primaryBorderColor: '#00f0ff', lineColor: '#6a6a80', secondaryColor: '#1a1a24', tertiaryColor: '#111118', fontFamily: 'JetBrains Mono' }});</script>
 </body>
 </html>

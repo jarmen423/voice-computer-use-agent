@@ -106,7 +106,7 @@ twine==6.2.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==2.6.3
--e git+https://github.com/jarmen423/voice-computer-use-agent.git@cefc2605a7d3c3ff5393caab09e752ff24fa9149#egg=voice_computer_use_agent
+-e git+https://github.com/jarmen423/voice-computer-use-agent.git@c784c2584607291d67f0f1335ad28780f2ec6da8#egg=voice_computer_use_agent
 watchdog==6.0.0
 webrtcvad==2.0.10
 websockets==16.0

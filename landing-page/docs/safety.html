@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Safety &amp; Security — VoiceUse Docs</title>
-  <meta name="description" content="VoiceUse safety features and security documentation.">
+  <title>Safety — VoiceUse Docs</title>
+  <meta name="description" content="VoiceUse implements multiple layers of safety to protect your system from accidental or malicious voice commands.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -38,51 +38,56 @@
     <aside class="docs-sidebar">
       <div class="docs-sidebar-title">Documentation</div>
       <nav class="docs-nav">
-        <a href="index.html">Getting Started</a>
-        <a href="installation.html">Installation</a>
-        <a href="configuration.html">Configuration</a>
-        <a href="usage.html">Usage</a>
-        <a href="plugins.html">Plugins</a>
-        <a href="safety.html" class="active">Safety</a>
-        <a href="troubleshooting.html">Troubleshooting</a>
-        <a href="development.html">Development</a>
-        <a href="architecture.html">Architecture</a>
+<a href="index.html">Getting Started</a>
+<a href="installation.html">Installation</a>
+<a href="configuration.html">Configuration</a>
+<a href="usage.html">Usage</a>
+<a href="plugins.html">Plugins</a>
+<a href="safety.html" class="active">Safety</a>
+<a href="troubleshooting.html">Troubleshooting</a>
+<a href="development.html">Development</a>
+<a href="architecture.html">Architecture</a>
       </nav>
     </aside>
 
     <main class="docs-content">
       <div class="docs-breadcrumb">
-        <a href="../index.html">VoiceUse</a>
-        <span class="docs-breadcrumb-sep">/</span>
-        <a href="index.html">Docs</a>
-        <span class="docs-breadcrumb-sep">/</span>
-        <span>Safety</span>
+<a href="../index.html">VoiceUse</a>
+<span class="docs-breadcrumb-sep">/</span>
+<a href="index.html">Docs</a>
+<span class="docs-breadcrumb-sep">/</span>
+<span>Safety</span>
       </div>
 
-      <h1>Safety &amp; Security</h1>
+<h1 id="safety-security">Safety &amp; Security</h1>
+<p>VoiceUse implements multiple layers of safety to protect your system from accidental or malicious voice commands.</p>
+<h2 id="spoken-confirmation">Spoken Confirmation</h2>
+<p>Before any destructive action, VoiceUse:</p>
+<ol>
+<li><strong>Speaks a confirmation prompt</strong> — e.g., "You asked me to close the window. Should I proceed?"</li>
+<li><strong>Listens for your response</strong> — Waits for spoken confirmation</li>
+<li><strong>Acts on your answer</strong>:</li>
+<li><strong>Proceeds</strong> on: <code>yes</code>, <code>yep</code>, <code>yeah</code>, <code>sure</code></li>
+<li><strong>Cancels</strong> on: <code>no</code>, <code>nope</code>, <code>cancel</code>, timeout (10s), or any other response</li>
+</ol>
+<div class="mermaid">
+flowchart TD
+    Request[User request] --> ToolCall[Tool call]
+    ToolCall --> Safety[SafetyGuard]
+    Safety --> Allowed{Allowed?}
+    Allowed -->|no| Block[Blocked]
+    Allowed -->|yes| Confirm{Needs confirmation?}
+    Confirm -->|yes| Ask[Ask user]
+    Ask -->|yes| Execute[Execute]
+    Ask -->|no| Cancel[Cancel]
+    Confirm -->|no| Execute
+    Execute --> Audit[Audit log]
+</div>
 
-      <p>VoiceUse implements multiple layers of safety to protect your system from accidental or malicious voice commands.</p>
 
-      <h2>Spoken Confirmation</h2>
-
-      <p>Before any destructive action, VoiceUse:</p>
-
-      <ol>
-        <li><strong>Speaks a confirmation prompt</strong> — e.g., "You asked me to close the window. Should I proceed?"</li>
-        <li><strong>Listens for your response</strong> — Waits for spoken confirmation</li>
-        <li><strong>Acts on your answer</strong>:
-          <ul>
-            <li><strong>Proceeds</strong> on: <code>yes</code>, <code>yep</code>, <code>yeah</code>, <code>sure</code></li>
-            <li><strong>Cancels</strong> on: <code>no</code>, <code>nope</code>, <code>cancel</code>, timeout (10s), or any other response</li>
-          </ul>
-        </li>
-      </ol>
-
-      <h2>Destructive Keyword Detection</h2>
-
-      <p>The following keywords trigger confirmation:</p>
-
-      <pre><code>safety:
+<h2 id="destructive-keyword-detection">Destructive Keyword Detection</h2>
+<p>The following keywords trigger confirmation:</p>
+<pre><code class="language-yaml">safety:
   destructive_keywords:
     - close
     - quit
@@ -96,56 +101,43 @@
     - rm -rf
     - type password
     - enter password
-    - input password</code></pre>
+    - input password
+</code></pre>
+<p>You can customize this list in your <code>config.yaml</code>.</p>
+<h2 id="shell-command-allow-list">Shell Command Allow-List</h2>
+<p>System commands run through an allow-list by default. Unknown commands are <strong>blocked</strong> with an error message.</p>
+<div class="docs-callout warning">
+<div class="docs-callout-title">Default Policy</div>
+<p>By default, <code>shell=False</code> is used. Commands not in the allow-list are rejected. This prevents accidental execution of dangerous commands.</p>
+</div>
 
-      <p>You can customize this list in your <code>config.yaml</code>.</p>
-
-      <h2>Shell Command Allow-List</h2>
-
-      <p>System commands run through an allow-list by default. Unknown commands are <strong>blocked</strong> with an error message.</p>
-
-      <div class="docs-callout danger">
-        <div class="docs-callout-title">Default Policy</div>
-        <p>By default, <code>shell=False</code> is used. Commands not in the allow-list are rejected. This prevents accidental execution of dangerous commands.</p>
-      </div>
-
-      <h2>Audit Logging</h2>
-
-      <p>Every tool call is logged to an audit trail:</p>
-
-      <pre><code># Logged automatically
-tool_name: "open_app"
-arguments: {"app_name": "Chrome"}
-result: "success"
-timestamp: "2024-01-15T10:30:00Z"</code></pre>
-
-      <p>Audit logs help you review what VoiceUse did and debug issues.</p>
-
-      <h2>Password Protection</h2>
-
-      <p>VoiceUse explicitly detects password entry attempts:</p>
-
-      <ul>
-        <li><code>"type password"</code></li>
-        <li><code>"enter password"</code></li>
-        <li><code>"input password"</code></li>
-      </ul>
-
-      <p>These always trigger confirmation and are logged.</p>
-
-      <h2>Best Practices</h2>
-
-      <ol>
-        <li><strong>Review your config</strong> — Check <code>destructive_keywords</code> matches your workflow</li>
-        <li><strong>Start with <code>--dry-run</code></strong> — Test without API calls first</li>
-        <li><strong>Monitor audit logs</strong> — Regularly check what actions were taken</li>
-        <li><strong>Use aliases</strong> — Prevent STT errors from resolving to dangerous app names</li>
-        <li><strong>Keep API keys secure</strong> — Use environment variables, never commit keys</li>
-      </ol>
-
-      <h2>Reporting Security Issues</h2>
-
-      <p>If you discover a security vulnerability, please open an issue on <a href="https://github.com/jarmen423/voice-computer-use-agent/issues">GitHub</a> or contact the maintainers directly.</p>
+<h2 id="audit-logging">Audit Logging</h2>
+<p>Every tool call is logged to an audit trail:</p>
+<pre><code class="language-python"># Logged automatically
+tool_name: &quot;open_app&quot;
+arguments: {&quot;app_name&quot;: &quot;Chrome&quot;}
+result: &quot;success&quot;
+timestamp: &quot;2024-01-15T10:30:00Z&quot;
+</code></pre>
+<p>Audit logs help you review what VoiceUse did and debug issues.</p>
+<h2 id="password-protection">Password Protection</h2>
+<p>VoiceUse explicitly detects password entry attempts:</p>
+<ul>
+<li><code>"type password"</code></li>
+<li><code>"enter password"</code></li>
+<li><code>"input password"</code></li>
+</ul>
+<p>These always trigger confirmation and are logged.</p>
+<h2 id="best-practices">Best Practices</h2>
+<ol>
+<li><strong>Review your config</strong> — Check <code>destructive_keywords</code> matches your workflow</li>
+<li><strong>Start with <code>--dry-run</code></strong> — Test without API calls first</li>
+<li><strong>Monitor audit logs</strong> — Regularly check what actions were taken</li>
+<li><strong>Use aliases</strong> — Prevent STT errors from resolving to dangerous app names</li>
+<li><strong>Keep API keys secure</strong> — Use environment variables, never commit keys</li>
+</ol>
+<h2 id="reporting-security-issues">Reporting Security Issues</h2>
+<p>If you discover a security vulnerability, please open an issue on GitHub or contact the maintainers directly.</p>
     </main>
   </div>
 
@@ -170,5 +162,7 @@ timestamp: "2024-01-15T10:30:00Z"</code></pre>
   </footer>
 
   <script src="../script.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: true, theme: 'dark', themeVariables: { primaryColor: '#00f0ff', primaryTextColor: '#e8e8f0', primaryBorderColor: '#00f0ff', lineColor: '#6a6a80', secondaryColor: '#1a1a24', tertiaryColor: '#111118', fontFamily: 'JetBrains Mono' }});</script>
 </body>
 </html>

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Development — VoiceUse Docs</title>
-  <meta name="description" content="VoiceUse development guide for contributors.">
+  <meta name="description" content="Guide for contributors and developers extending VoiceUse.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -38,41 +38,38 @@
     <aside class="docs-sidebar">
       <div class="docs-sidebar-title">Documentation</div>
       <nav class="docs-nav">
-        <a href="index.html">Getting Started</a>
-        <a href="installation.html">Installation</a>
-        <a href="configuration.html">Configuration</a>
-        <a href="usage.html">Usage</a>
-        <a href="plugins.html">Plugins</a>
-        <a href="safety.html">Safety</a>
-        <a href="troubleshooting.html">Troubleshooting</a>
-        <a href="development.html" class="active">Development</a>
-        <a href="architecture.html">Architecture</a>
+<a href="index.html">Getting Started</a>
+<a href="installation.html">Installation</a>
+<a href="configuration.html">Configuration</a>
+<a href="usage.html">Usage</a>
+<a href="plugins.html">Plugins</a>
+<a href="safety.html">Safety</a>
+<a href="troubleshooting.html">Troubleshooting</a>
+<a href="development.html" class="active">Development</a>
+<a href="architecture.html">Architecture</a>
       </nav>
     </aside>
 
     <main class="docs-content">
       <div class="docs-breadcrumb">
-        <a href="../index.html">VoiceUse</a>
-        <span class="docs-breadcrumb-sep">/</span>
-        <a href="index.html">Docs</a>
-        <span class="docs-breadcrumb-sep">/</span>
-        <span>Development</span>
+<a href="../index.html">VoiceUse</a>
+<span class="docs-breadcrumb-sep">/</span>
+<a href="index.html">Docs</a>
+<span class="docs-breadcrumb-sep">/</span>
+<span>Development</span>
       </div>
 
-      <h1>Development</h1>
-
-      <p>Guide for contributors and developers extending VoiceUse.</p>
-
-      <h2>Project Structure</h2>
-
-      <pre><code>voiceuse/
+<h1 id="development">Development</h1>
+<p>Guide for contributors and developers extending VoiceUse.</p>
+<h2 id="project-structure">Project Structure</h2>
+<pre><code>voiceuse/
   __init__.py
   main.py              # Entry point, subsystem wiring, graceful shutdown
   brain.py             # LLM orchestrator, tool schemas, safety dispatch
   config.py            # Pydantic YAML config with env var resolution
   input_manager.py     # pynput hotkeys, porcupine wake word, webrtcvad, Groq STT
   os_controller.py     # Cross-platform window/input/screenshot logic
-  os_services.py       # Focused OS services
+  os_services.py       # Focused OS services (window, input, screenshot, commands)
   vision_bridge.py     # Screenshot → Codex/Anthropic → coordinate → click
   tts_manager.py       # edge-tts + pyttsx3 + multi-backend playback queue
   safety.py            # Destructive keyword detection + spoken confirmation
@@ -93,11 +90,10 @@
       client.py        # XAIRealtimeClient WebSocket + auth + events
       audio_streamer.py # 24 kHz PCM capture/playback + interruption
 tests/
-  test_*.py            # Unit tests for each module</code></pre>
-
-      <h2>Setting Up Development Environment</h2>
-
-      <pre><code># Clone repository
+  test_*.py            # Unit tests for each module
+</code></pre>
+<h2 id="setting-up-development-environment">Setting Up Development Environment</h2>
+<pre><code class="language-bash"># Clone repository
 git clone https://github.com/jarmen423/voice-computer-use-agent.git
 cd voice-computer-use-agent
 
@@ -111,11 +107,10 @@ python -m venv .venv
 source .venv/bin/activate
 
 # Install with dev dependencies
-pip install -e ".[dev]"</code></pre>
-
-      <h2>Running Tests</h2>
-
-      <pre><code># Run all tests
+pip install -e &quot;.[dev]&quot;
+</code></pre>
+<h2 id="running-tests">Running Tests</h2>
+<pre><code class="language-bash"># Run all tests
 pytest
 
 # Run with verbose output
@@ -125,24 +120,23 @@ pytest -v
 pytest tests/test_safety.py
 
 # Run with coverage
-pytest --cov=voiceuse --cov-report=html</code></pre>
-
-      <h2>Linting &amp; Type Checking</h2>
-
-      <pre><code># Format with ruff
+pytest --cov=voiceuse --cov-report=html
+</code></pre>
+<h2 id="linting-type-checking">Linting &amp; Type Checking</h2>
+<pre><code class="language-bash"># Format with ruff
 ruff check voiceuse tests
 ruff format voiceuse tests
 
 # Type check with mypy
-mypy voiceuse</code></pre>
-
-      <h2>Adding a New Tool</h2>
-
-      <p>To add a new OS control tool:</p>
-
-      <p><strong>1.</strong> Define the schema in <code>voiceuse/tool_registry.py</code>:</p>
-
-      <pre><code>TOOL_SCHEMAS = {
+mypy voiceuse
+</code></pre>
+<h2 id="adding-a-new-tool">Adding a New Tool</h2>
+<p>To add a new OS control tool:</p>
+<ol>
+<li>
+<p>Define the schema in <code>voiceuse/tool_registry.py</code>:</p>
+<p><code>python
+TOOL_SCHEMAS = {
     "my_new_tool": {
         "description": "Does something useful",
         "parameters": {
@@ -153,60 +147,64 @@ mypy voiceuse</code></pre>
             "required": ["param1"]
         }
     }
-}</code></pre>
-
-      <p><strong>2.</strong> Implement the handler:</p>
-
-      <pre><code>def my_new_tool(param1: str) -> CommandResult:
+}</code></p>
+</li>
+<li>
+<p>Implement the handler:</p>
+<p><code>python
+def my_new_tool(param1: str) -&gt; CommandResult:
     # Implementation
-    return CommandResult.success("Done")</code></pre>
-
-      <p><strong>3.</strong> Register in the dispatcher:</p>
-
-      <pre><code>TOOL_HANDLERS = {
+    return CommandResult.success("Done")</code></p>
+</li>
+<li>
+<p>Register in the dispatcher:</p>
+<p><code>python
+TOOL_HANDLERS = {
     "my_new_tool": my_new_tool,
     # ...
-}</code></pre>
-
-      <p><strong>4.</strong> Add tests in <code>tests/test_tool_registry.py</code></p>
-
-      <h2>Adding a New Plugin</h2>
-
-      <p><strong>1.</strong> Create directory: <code>voiceuse/plugins/my_plugin/</code></p>
-
-      <p><strong>2.</strong> Implement <code>PluginBase</code>:</p>
-
-      <pre><code>from voiceuse.plugins.base import PluginBase
-
-class MyPlugin(PluginBase):
+}</code></p>
+</li>
+<li>
+<p>Add tests in <code>tests/test_tool_registry.py</code></p>
+</li>
+</ol>
+<h2 id="adding-a-new-plugin">Adding a New Plugin</h2>
+<ol>
+<li>Create directory: <code>voiceuse/plugins/my_plugin/</code></li>
+<li>
+<p>Implement <code>PluginBase</code>:</p>
+<p>```python
+from voiceuse.plugins.base import PluginBase</p>
+<p>class MyPlugin(PluginBase):
     async def start(self):
-        pass
-
-    async def stop(self):
-        pass</code></pre>
-
-      <p><strong>3.</strong> Register in <code>voiceuse/plugins/__init__.py</code>:</p>
-
-      <pre><code>def get_plugin(name: str) -> PluginBase:
+        pass</p>
+<pre><code>async def stop(self):
+    pass
+</code></pre>
+<p>```</p>
+</li>
+<li>
+<p>Register in <code>voiceuse/plugins/__init__.py</code>:</p>
+<p><code>python
+def get_plugin(name: str) -&gt; PluginBase:
     if name == "my_plugin":
         from .my_plugin.plugin import MyPlugin
-        return MyPlugin()</code></pre>
-
-      <p><strong>4.</strong> Add config in <code>voiceuse/config.py</code> under <code>PluginsConfig</code></p>
-      <p><strong>5.</strong> Write tests in <code>tests/test_my_plugin.py</code></p>
-
-      <h2>Key Architecture Decisions</h2>
-
-      <ul>
-        <li><strong>Replace Mode for Plugins</strong> — Plugins fully replace the default pipeline. Mixing sample rates (16 kHz Whisper vs 24 kHz xAI) is not supported.</li>
-        <li><strong>Thread → Async Bridge</strong> — Background threads use <code>asyncio.run_coroutine_threadsafe()</code> to schedule async callbacks.</li>
-        <li><strong>Safety Before Execution</strong> — Both Brain and plugins apply <code>SafetyGuard.check_command()</code> before dispatching tool calls.</li>
-        <li><strong>Retry Decorator</strong> — <code>@async_retry</code> wraps transient API calls with 3 attempts and exponential backoff.</li>
-      </ul>
-
-      <h2>Building &amp; Publishing</h2>
-
-      <pre><code># Build wheel
+        return MyPlugin()</code></p>
+</li>
+<li>
+<p>Add config in <code>voiceuse/config.py</code> under <code>PluginsConfig</code></p>
+</li>
+<li>Write tests in <code>tests/test_my_plugin.py</code></li>
+</ol>
+<h2 id="key-architecture-decisions">Key Architecture Decisions</h2>
+<ul>
+<li><strong>Replace Mode for Plugins</strong> — Plugins fully replace the default pipeline. Mixing sample rates (16 kHz Whisper vs 24 kHz xAI) is not supported.</li>
+<li><strong>Thread → Async Bridge</strong> — Background threads use <code>asyncio.run_coroutine_threadsafe()</code> to schedule async callbacks.</li>
+<li><strong>Safety Before Execution</strong> — Both Brain and plugins apply <code>SafetyGuard.check_command()</code> before dispatching tool calls.</li>
+<li><strong>Retry Decorator</strong> — <code>@async_retry</code> wraps transient API calls with 3 attempts and exponential backoff.</li>
+</ul>
+<h2 id="building-publishing">Building &amp; Publishing</h2>
+<pre><code class="language-bash"># Build wheel
 python -m build
 
 # Verify entry points
@@ -214,18 +212,17 @@ python -m voiceuse --help
 voiceuse --help
 
 # Test publish to TestPyPI
-python -m twine upload --repository testpypi dist/*</code></pre>
-
-      <h2>Contributing</h2>
-
-      <ol>
-        <li>Fork the repository</li>
-        <li>Create a feature branch: <code>git checkout -b feature/my-feature</code></li>
-        <li>Make changes with tests</li>
-        <li>Run linting: <code>ruff check voiceuse tests</code></li>
-        <li>Run tests: <code>pytest</code></li>
-        <li>Submit a pull request</li>
-      </ol>
+python -m twine upload --repository testpypi dist/*
+</code></pre>
+<h2 id="contributing">Contributing</h2>
+<ol>
+<li>Fork the repository</li>
+<li>Create a feature branch: <code>git checkout -b feature/my-feature</code></li>
+<li>Make changes with tests</li>
+<li>Run linting: <code>ruff check voiceuse tests</code></li>
+<li>Run tests: <code>pytest</code></li>
+<li>Submit a pull request</li>
+</ol>
     </main>
   </div>
 
