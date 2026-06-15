@@ -1,0 +1,51 @@
+<!--
+Purpose: Main index.html for Cybernetic Autopilot landing page.
+Dependencies: None.
+Role: Serves as the HTML template and entry point. Defines preconnects and meta tags.
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A2BE2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z'%3E%3C/path%3E%3Cpath d='M19 10v2a7 7 0 0 1-14 0v-2'%3E%3C/path%3E%3Cline x1='12' x2='12' y1='19' y2='22'%3E%3C/line%3E%3C/svg%3E" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VoiceUse — Cybernetic Autopilot for Your Desktop</title>
+    <meta name="description" content="Operate your system with a whisper. VoiceUse is an open-source, local desktop voice companion for hands-free computer control." />
+    
+    <!-- SEO and Open Graph Meta Tags -->
+    <meta property="og:title" content="VoiceUse — Cybernetic Autopilot for Your Desktop" />
+    <meta property="og:description" content="Operate your system with a whisper. VoiceUse is an open-source, local desktop voice companion for hands-free computer control." />
+    <meta property="og:type" content="website" />
+    
+    <!-- Google Fonts Preconnect and Load -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <!-- FOUC Prevention & Capability / Preference Detection Script -->
+    <script>
+      (function() {
+        // Detect dark mode preferences or set default
+        const savedTheme = localStorage.getItem('theme');
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const useDark = savedTheme === 'dark' || (savedTheme === null && systemPrefersDark);
+        
+        if (useDark) {
+          document.documentElement.classList.add('dark-theme');
+        } else {
+          document.documentElement.classList.add('light-theme');
+        }
+
+        // Detect reduced motion and apply to root element
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReducedMotion) {
+          document.documentElement.classList.add('reduced-motion');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
