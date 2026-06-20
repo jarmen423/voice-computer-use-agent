@@ -84,6 +84,21 @@ app:
     # vscode: "Visual Studio Code"
     # edge: "Microsoft Edge"
 
+browser_agent:
+  host: "0.0.0.0"
+  port: 8123
+  cdp_port: 9222
+  chrome_path: "/usr/bin/google-chrome"
+  headless: false
+  profile_dir: null
+  max_steps: 15
+  vision_enabled: false
+  llm_provider: "codex"
+  llm_model: "codex"
+  llm_api_key: null
+  temperature: 0.2
+  max_tokens: 2048
+
 plugins:
   grok_voice:
     enabled: false
