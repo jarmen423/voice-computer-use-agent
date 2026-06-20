@@ -32,6 +32,11 @@ voiceuse/
   models.py            # Shared dataclasses
   retry.py             # Exponential backoff decorator for API calls
   health.py            # Startup dependency checker
+  browser_agent/       # Remote browser-control agent (Playwright + web UI)
+    controller.py
+    agent.py
+    web.py
+    static/index.html
   plugins/
     __init__.py        # Plugin registry / discovery
     base.py            # PluginBase abstract class
@@ -103,6 +108,27 @@ ruff format voiceuse tests
 # Type check with mypy
 mypy voiceuse
 ```
+
+## Browser Agent (remote browser control)
+
+A web-based browser-control agent is available for remote operation over
+Tailscale. It runs on the machine with the browser (e.g. Kubuntu) and is
+operated from a browser on another machine (e.g. Windows).
+
+```bash
+# Install with browser-agent extras
+uv tool install -e ".[browser-agent]" --reinstall
+
+# Start the server
+set -a; source .env; set +a
+export DISPLAY=:0
+export XAUTHORITY=$(find /run/user/$(id -u) -maxdepth 1 -name 'xauth_*' -print -quit)
+voiceuse-browser-agent --port 8123
+```
+
+Then open `http://<kubuntu-tailscale-ip>:8123` from the remote browser.
+See `voiceuse/browser_agent/README.md` for full configuration and provider
+options.
 
 ## Packaging
 

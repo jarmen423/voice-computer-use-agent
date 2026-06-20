@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceUse Browser Agent</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --accent: #38bdf8;
+            --accent-hover: #0ea5e9;
+            --danger: #f43f5e;
+            --success: #22c55e;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            padding: 1rem 1.5rem;
+            background: var(--panel);
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 { margin: 0; font-size: 1.25rem; }
+        .status {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+        .status.connected { color: var(--success); }
+        .status.disconnected { color: var(--danger); }
+        main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        #chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #334155;
+        }
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .message {
+            max-width: 90%;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            background: var(--panel);
+            word-break: break-word;
+        }
+        .message.user { align-self: flex-end; background: #1e40af; }
+        .message.agent { align-self: flex-start; }
+        .message img {
+            max-width: 100%;
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
+            border: 1px solid #334155;
+        }
+        .message .meta {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-bottom: 0.25rem;
+        }
+        #input-area {
+            padding: 1rem;
+            background: var(--panel);
+            border-top: 1px solid #334155;
+            display: flex;
+            gap: 0.5rem;
+        }
+        #input-area input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: var(--text);
+            font-size: 1rem;
+        }
+        #input-area button {
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            border: none;
+            background: var(--accent);
+            color: #0f172a;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        #input-area button:hover { background: var(--accent-hover); }
+        #input-area button:disabled { opacity: 0.5; cursor: not-allowed; }
+        #sidebar {
+            width: 260px;
+            padding: 1rem;
+            background: var(--panel);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        #sidebar button {
+            padding: 0.6rem;
+            border-radius: 0.5rem;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: var(--text);
+            cursor: pointer;
+        }
+        #sidebar button:hover { background: #1e293b; }
+        #sidebar h2 { margin: 0; font-size: 1rem; color: var(--muted); }
+        #sidebar .hint { font-size: 0.8rem; color: var(--muted); line-height: 1.4; }
+        @media (max-width: 800px) {
+            main { flex-direction: column; }
+            #sidebar { width: auto; border-top: 1px solid #334155; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🌐 VoiceUse Browser Agent</h1>
+        <div id="status" class="status disconnected">Disconnected</div>
+    </header>
+    <main>
+        <section id="chat">
+            <div id="messages"></div>
+            <div id="input-area">
+                <input id="command-input" type="text" placeholder="Tell the agent what to do in the browser..." autocomplete="off">
+                <button id="send-btn">Send</button>
+            </div>
+        </section>
+        <aside id="sidebar">
+            <h2>Browser</h2>
+            <button id="btn-launch">Launch fresh Chrome</button>
+            <button id="btn-attach">Attach to existing Chrome</button>
+            <button id="btn-close">Close browser</button>
+            <div class="hint">
+                To attach to your real browser session, start Chrome with:<br>
+                <code>google-chrome --remote-debugging-port=9222</code>
+            </div>
+            <h2 style="margin-top:1rem">Examples</h2>
+            <div class="hint">
+                “Go to google.com and search for 'playwright python'”<br><br>
+                “Open gmail.com and check my inbox”<br><br>
+                “Go to github.com/jarmen423 and read the latest commit message”
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        const messagesEl = document.getElementById('messages');
+        const inputEl = document.getElementById('command-input');
+        const sendBtn = document.getElementById('send-btn');
+        const statusEl = document.getElementById('status');
+
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+        ws.onopen = () => {
+            updateStatus(true, 'Connected (no browser)');
+        };
+        ws.onclose = () => {
+            updateStatus(false, 'Disconnected');
+        };
+        ws.onerror = (e) => {
+            updateStatus(false, 'WebSocket error');
+        };
+
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            handleEvent(msg);
+        };
+
+        function updateStatus(connected, text) {
+            statusEl.className = 'status ' + (connected ? 'connected' : 'disconnected');
+            statusEl.textContent = text;
+        }
+
+        function appendMessage(text, sender, html = false) {
+            const div = document.createElement('div');
+            div.className = 'message ' + sender;
+            const meta = document.createElement('div');
+            meta.className = 'meta';
+            meta.textContent = sender === 'user' ? 'You' : 'Agent';
+            div.appendChild(meta);
+            const body = document.createElement('div');
+            if (html) body.innerHTML = text;
+            else body.textContent = text;
+            div.appendChild(body);
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            return div;
+        }
+
+        function appendScreenshot(b64) {
+            const div = document.createElement('div');
+            div.className = 'message agent';
+            const meta = document.createElement('div');
+            meta.className = 'meta';
+            meta.textContent = 'Screenshot';
+            div.appendChild(meta);
+            const img = document.createElement('img');
+            img.src = 'data:image/png;base64,' + b64;
+            img.alt = 'Browser screenshot';
+            div.appendChild(img);
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function handleEvent(msg) {
+            if (msg.type === 'text') {
+                appendMessage(msg.message, 'agent');
+            } else if (msg.type === 'screenshot') {
+                appendScreenshot(msg.data);
+            } else if (msg.type === 'action') {
+                const data = msg.data || {};
+                appendMessage(`Action: ${data.name} ${JSON.stringify(data.parameters || {})}`, 'agent');
+            } else if (msg.type === 'result') {
+                const data = msg.data || {};
+                appendMessage(`Result: ${data.message}`, 'agent');
+            } else if (msg.type === 'done') {
+                appendMessage('✅ ' + msg.message, 'agent');
+                setBusy(false);
+            } else if (msg.type === 'error') {
+                appendMessage('❌ ' + msg.message, 'agent');
+                setBusy(false);
+            }
+        }
+
+        function setBusy(busy) {
+            sendBtn.disabled = busy;
+            inputEl.disabled = busy;
+        }
+
+        function sendCommand() {
+            const text = inputEl.value.trim();
+            if (!text) return;
+            appendMessage(text, 'user');
+            inputEl.value = '';
+            setBusy(true);
+            ws.send(JSON.stringify({ type: 'command', text }));
+        }
+
+        sendBtn.addEventListener('click', sendCommand);
+        inputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendCommand();
+        });
+
+        async function apiCall(path) {
+            try {
+                const res = await fetch(path, { method: 'POST' });
+                const data = await res.json();
+                appendMessage(`${data.success ? '✅' : '❌'} ${data.message}`, 'agent');
+                if (data.success) updateStatus(true, 'Browser connected');
+            } catch (e) {
+                appendMessage('❌ ' + e, 'agent');
+            }
+        }
+
+        document.getElementById('btn-launch').addEventListener('click', () => apiCall('/api/browser/launch'));
+        document.getElementById('btn-attach').addEventListener('click', () => apiCall('/api/browser/attach'));
+        document.getElementById('btn-close').addEventListener('click', () => apiCall('/api/browser/close'));
+    </script>
+</body>
+</html>

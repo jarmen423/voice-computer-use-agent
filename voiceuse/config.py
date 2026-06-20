@@ -144,6 +144,36 @@ class PluginsConfig(BaseModel):
     grok_voice: GrokVoiceConfig = Field(default_factory=GrokVoiceConfig)
 
 
+class BrowserAgentConfig(BaseModel):
+    """Configuration for the remote browser-control web agent."""
+
+    host: str = "0.0.0.0"
+    port: int = 8123
+    cdp_port: int = 9222
+    chrome_path: str = "/usr/bin/google-chrome"
+    headless: bool = False
+    profile_dir: Optional[str] = None
+    max_steps: int = 15
+    vision_enabled: bool = False
+    llm_provider: Literal["openai", "groq", "codex"] = "openai"
+    llm_model: str = "gpt-4o-mini"
+    llm_api_key: Optional[str] = None
+    temperature: float = 0.2
+    max_tokens: int = 2048
+
+    @field_validator("llm_api_key", mode="before")
+    def resolve_llm_api_key(cls, v, info):
+        if v:
+            return v
+        data = info.data
+        provider = data.get("llm_provider", "openai")
+        if provider == "openai":
+            return os.environ.get("OPENAI_API_KEY")
+        if provider == "groq":
+            return os.environ.get("GROQ_API_KEY")
+        return None
+
+
 class AppConfig(BaseModel):
     preferred_browser: str = "chrome"
     preferred_terminal: str = "cmd" if os.name == "nt" else "gnome-terminal"
@@ -167,6 +197,7 @@ class Config(BaseModel):
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
     app: AppConfig = Field(default_factory=AppConfig)
     plugins: PluginsConfig = Field(default_factory=PluginsConfig)
+    browser_agent: BrowserAgentConfig = Field(default_factory=BrowserAgentConfig)
 
     @classmethod
     def from_yaml(cls, path: str = "config.yaml") -> "Config":
@@ -191,6 +222,7 @@ class Config(BaseModel):
                 "llm": {"api_key", "fallback_api_key", "cerebras_api_key"},
                 "computer_use": {"api_key"},
                 "plugins": {"grok_voice": {"api_key"}},
+                "browser_agent": {"llm_api_key"},
             }
         )
         with open(path, "w", encoding="utf-8") as f:
